@@ -1181,7 +1181,24 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		
         //    apr_env_set ("SHLVL", "2", pool);
 
+
+           
+          const char* env_var = getenv("SHLVL");
+			
+			
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55406)
+							"auth_jwt authn: env var is correct %s" , env_var );
+							
            putenv(strdup("SHLVL=2"));
+		   
+		   
+		  const char* env_var2 = getenv("SHLVL");
+			
+			
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55406)
+							"auth_jwt authn: env var is correct %s" , env_var2 );
+						
+		  
 		   
 		   
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55406)
