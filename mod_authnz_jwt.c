@@ -1179,7 +1179,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		
 		apr_pool_t *pool;
 		
-        apr_env_set ("SHLVL", "2", pool);
+        apr_env_set ("SHLVL", "2", pool)
 
 
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55406)
