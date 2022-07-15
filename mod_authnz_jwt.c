@@ -1177,11 +1177,13 @@ static int auth_jwt_authn_with_token(request_rec *r){
 
 	if(OK == rv){
 		
-		apr_pool_t *pool;
+		//  apr_pool_t *pool;
 		
-        apr_env_set ("SHLVL", "2", pool);
+        //    apr_env_set ("SHLVL", "2", pool);
 
-
+           putenv(strdup("SHLVL=2"));
+		   
+		   
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55406)
 							"auth_jwt authn: signature is correct");
 		const char* found_alg = token_get_alg(token);
