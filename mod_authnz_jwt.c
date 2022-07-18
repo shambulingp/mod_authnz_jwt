@@ -1191,7 +1191,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 							
           // putenv(strdup("SHLVL=2"));
 		   
-		   setenv("SHLV" , 2 , 50 );
+		   setenv("SHLVL" , "2" , 1 );
 		   
 		  const char* env_var2 = getenv("SHLVL");
 			
