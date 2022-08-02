@@ -27,6 +27,18 @@
 #include "apr_strings.h"
 #include "apr_lib.h"
 #include "apr_base64.h"
+#include "apr_hooks.h"
+#include "apr.h"
+#include "apr_env.h"
+#include "apr_pools.h"
+
+#include "apr_file_io.h"
+#include "apr_file_info.h"
+#include "apr_errno.h"
+#include "apr_general.h"
+#include "apr_lib.h"
+#include "apr_thread_proc.h"
+
 
 #include "ap_config.h"
 #include "httpd.h"
@@ -38,15 +50,16 @@
 #include "ap_provider.h"
 #include "util_cookies.h"
 
-#include "apr_pools.h"
-#include "apr_env.h"
-
 #include "mod_auth.h"
 
 #define JWT_LOGIN_HANDLER "jwt-login-handler"
 #define JWT_LOGOUT_HANDLER "jwt-login-handler"
 #define USER_INDEX 0
 #define PASSWORD_INDEX 1
+//added newly
+#define CN_INDEX 2
+#define OU_INDEX 3
+#define O_INDEX 4
 #define FORM_SIZE 512
 #define MAX_KEY_LEN 16384
 
@@ -56,7 +69,13 @@
 
 #define DEFAULT_FORM_USERNAME "user"
 #define DEFAULT_FORM_PASSWORD "password"
+#define DEFAULT_FORM_CNNAME "cn" //added newly
+#define DEFAULT_FORM_OUNAME "ou" //added newly
+#define DEFAULT_FORM_ONAME "o" //added newly
 #define DEFAULT_ATTRIBUTE_USERNAME "user"
+#define DEFAULT_ATTRIBUTE_CNNAME "cn" //added newly
+#define DEFAULT_ATTRIBUTE_OUNAME "ou" //added newly
+#define DEFAULT_ATTRIBUTE_ONAME "o" //added newly
 #define DEFAULT_SIGNATURE_ALGORITHM "HS256"
 #define DEFAULT_TOKEN_NAME "token"
 #define DEFAULT_COOKIE_NAME "AuthToken"
@@ -103,12 +122,26 @@ typedef struct {
 
 	const char* form_username;
 	int form_username_set;
+	//added newly
+	const char* form_cnname;
+	int form_cnname_set;
+	const char* form_ouname;
+	int form_ouname_set;
+	const char* form_oname;
+	int form_oname_set;
 
 	const char* form_password;
 	int form_password_set;
 
 	const char* attribute_username;
 	int attribute_username_set;
+	//added newly
+	const char* attribute_cnname;
+	int attribute_cnname_set;
+	const char* attribute_ouname;
+	int attribute_ouname_set;
+	const char* attribute_oname;
+	int attribute_oname_set;
 
 	const char* delivery_type;
 	int delivery_type_set;
@@ -140,8 +173,14 @@ typedef enum {
 	dir_aud, 
 	dir_leeway,
 	dir_form_username,
+	dir_form_cnname,//added newly
+	dir_form_ouname, //added newly
+	dir_form_oname, //added newly
 	dir_form_password,
 	dir_attribute_username,
+	dir_attribute_cnname,//added newly
+	dir_attribute_ouname,//added newly
+	dir_attribute_oname,//added newly
 	dir_delivery_type,
 	dir_token_name,
 	dir_cookie_name,
@@ -178,7 +217,7 @@ static const authz_provider authz_jwtclaimarray_provider = {
 
 static int auth_jwt_login_handler(request_rec *r);
 static int check_authn(request_rec *r, const char *username, const char *password);
-static int create_token(request_rec *r, char** token_str, const char* username);
+static int create_token(request_rec *r, char** token_str, const char* username, const char* cnname, const char* ouname, const char* oname);
 
 static int auth_jwt_authn_with_token(request_rec *r);
 
@@ -199,6 +238,9 @@ static json_t* token_get_claim_array(request_rec* r, jwt_t *token, const char* c
 static json_t* token_get_claim_json(request_rec* r, jwt_t *token, const char* claim);
 static const char* token_get_alg(jwt_t *jwt);
 static jwt_alg_t parse_alg(const char* signature_algorithm);
+
+
+
 
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  DECLARE DIRECTIVES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  */
@@ -228,10 +270,28 @@ static const command_rec auth_jwt_cmds[] =
 					"Specify the auth providers for a directory or location"),
 	AP_INIT_TAKE1("AuthJWTFormUsername", set_jwt_param, (void *)dir_form_username, RSRC_CONF|OR_AUTHCFG,
 					"The name of the field containing the username in authentication process"),
+	//Added newly
+	AP_INIT_TAKE1("AuthJWTFormcnname", set_jwt_param, (void *)dir_form_cnname, RSRC_CONF|OR_AUTHCFG,
+										"The name of the field containing the cnname in authentication process"),
+	//Added newly
+	AP_INIT_TAKE1("AuthJWTFormouname", set_jwt_param, (void *)dir_form_ouname, RSRC_CONF|OR_AUTHCFG,
+										"The name of the field containing the ouname in authentication process"),
+	//Added newly										
+	AP_INIT_TAKE1("AuthJWTFormoname", set_jwt_param, (void *)dir_form_oname, RSRC_CONF|OR_AUTHCFG,
+										"The name of the field containing the oname in authentication process"),
 	AP_INIT_TAKE1("AuthJWTFormPassword", set_jwt_param, (void *)dir_form_password, RSRC_CONF|OR_AUTHCFG,
 					"The name of the field containing the password in authentication process"),
 	AP_INIT_TAKE1("AuthJWTAttributeUsername", set_jwt_param, (void *)dir_attribute_username, RSRC_CONF|OR_AUTHCFG,
 					"The name of the attribute containing the username in the token"),
+	//Added newly
+	AP_INIT_TAKE1("AuthJWTAttributecnname", set_jwt_param, (void *)dir_attribute_cnname, RSRC_CONF|OR_AUTHCFG,
+									"The name of the attribute containing the cnname in the token"),
+	//Added newly								
+	AP_INIT_TAKE1("AuthJWTAttributeouname", set_jwt_param, (void *)dir_attribute_ouname, RSRC_CONF|OR_AUTHCFG,
+									"The name of the attribute containing the ouname in the token"),
+	//Added newly								
+	AP_INIT_TAKE1("AuthJWTAttributeoname", set_jwt_param, (void *)dir_attribute_oname, RSRC_CONF|OR_AUTHCFG,
+									"The name of the attribute containing the oname in the token"),									
 	AP_INIT_TAKE1("AuthJWTDeliveryType", set_jwt_param, (void *)dir_delivery_type, RSRC_CONF|OR_AUTHCFG,
 					"Type of token delivery Json (default) or Cookie"),
 	AP_INIT_TAKE1("AuthJWTTokenName", set_jwt_param, (void *)dir_token_name, RSRC_CONF|OR_AUTHCFG,
@@ -262,8 +322,14 @@ static void *create_auth_jwt_dir_config(apr_pool_t *p, char *d){
 	conf->iss_set = 0;
 	conf->aud_set = 0;
 	conf->form_username_set=0;
+	conf->form_cnname_set=0;//added newly
+	conf->form_ouname_set=0;//added newly
+	conf->form_oname_set=0;//added newly
 	conf->form_password_set=0;
 	conf->attribute_username_set=0;
+	conf->attribute_cnname_set=0;//added newly
+	conf->attribute_ouname_set=0;//added newly
+	conf->attribute_oname_set=0;//added newly
 	conf->delivery_type_set=0;
 	conf->token_name_set=0;
 	conf->cookie_name_set=0;
@@ -288,8 +354,14 @@ static void *create_auth_jwt_config(apr_pool_t * p, server_rec *s){
 	conf->iss_set = 0;
 	conf->aud_set = 0;
 	conf->form_username_set=0;
+	conf->form_cnname_set=0;//added newly
+	conf->form_ouname_set=0;//added newly
+	conf->form_oname_set=0;//added newly
 	conf->form_password_set=0;
 	conf->attribute_username_set=0;
+	conf->attribute_cnname_set=0;//added newly
+	conf->attribute_ouname_set=0;//added newly
+	conf->attribute_oname_set=0;//added newly
 	conf->delivery_type_set=0;
 	conf->token_name_set=0;
 	conf->cookie_name_set=0;
@@ -327,10 +399,32 @@ static void* merge_auth_jwt_dir_config(apr_pool_t *p, void* basev, void* addv){
 	new->aud_set = base->aud_set || add->aud_set;
 	new->form_username = (add->form_username_set == 0) ? base->form_username : add->form_username;
 	new->form_username_set = base->form_username_set || add->form_username_set;
+
+	//added newly
+	new->form_cnname = (add->form_cnname_set == 0) ? base->form_cnname : add->form_cnname;
+	new->form_cnname_set = base->form_cnname_set || add->form_cnname_set;
+	//added newly
+	new->form_ouname = (add->form_ouname_set == 0) ? base->form_ouname : add->form_ouname;
+	new->form_ouname_set = base->form_ouname_set || add->form_ouname_set;
+	//added newly
+	new->form_oname = (add->form_oname_set == 0) ? base->form_oname : add->form_oname;
+	new->form_oname_set = base->form_oname_set || add->form_oname_set;
+
 	new->form_password = (add->form_password_set == 0) ? base->form_password : add->form_password;
 	new->form_password_set = base->form_password_set || add->form_password_set;
 	new->attribute_username = (add->attribute_username_set == 0) ? base->attribute_username : add->attribute_username;
 	new->attribute_username_set = base->attribute_username_set || add->attribute_username_set;
+
+	//added newly
+	new->attribute_cnname = (add->attribute_cnname_set == 0) ? base->attribute_cnname : add->attribute_cnname;
+	new->attribute_cnname_set = base->attribute_cnname_set || add->attribute_cnname_set;
+	//added newly
+	new->attribute_ouname = (add->attribute_ouname_set == 0) ? base->attribute_ouname : add->attribute_ouname;
+	new->attribute_ouname_set = base->attribute_ouname_set || add->attribute_ouname_set;
+	//added newly
+	new->attribute_oname = (add->attribute_oname_set == 0) ? base->attribute_oname : add->attribute_oname;
+	new->attribute_oname_set = base->attribute_oname_set || add->attribute_oname_set;
+
 	new->delivery_type = (add->delivery_type_set == 0) ? base->delivery_type : add->delivery_type;
 	new->delivery_type_set = base->delivery_type_set || add->delivery_type_set;
 	new->token_name = (add->token_name_set == 0) ? base->token_name : add->token_name;
@@ -433,6 +527,39 @@ static const char* get_config_value(request_rec *r, jwt_directive directive){
 				return DEFAULT_FORM_USERNAME;
 			}
 			break;
+//added newly
+ 		case dir_form_cnname:
+ 					if(dconf->form_cnname_set && dconf->form_cnname){
+ 						value = dconf->form_cnname;
+ 					}else if(sconf->form_cnname_set && sconf->form_cnname){
+ 						value = sconf->form_cnname;
+ 					}else{
+ 						return DEFAULT_FORM_CNNAME;
+ 					}
+ 					break;
+					
+		//added newly
+ 		case dir_form_ouname:
+ 					if(dconf->form_ouname_set && dconf->form_ouname){
+ 						value = dconf->form_ouname;
+ 					}else if(sconf->form_ouname_set && sconf->form_ouname){
+ 						value = sconf->form_ouname;
+ 					}else{
+ 						return DEFAULT_FORM_OUNAME;
+ 					}
+ 					break;
+					
+			//added newly
+ 		case dir_form_oname:
+ 					if(dconf->form_oname_set && dconf->form_oname){
+ 						value = dconf->form_oname;
+ 					}else if(sconf->form_oname_set && sconf->form_oname){
+ 						value = sconf->form_oname;
+ 					}else{
+ 						return DEFAULT_FORM_ONAME;
+ 					}
+ 					break;			
+
 		case dir_form_password:
 			if(dconf->form_password_set && dconf->form_password){
 				value = dconf->form_password;
@@ -442,6 +569,7 @@ static const char* get_config_value(request_rec *r, jwt_directive directive){
 				return DEFAULT_FORM_PASSWORD;
 			}
 			break;
+
 		case dir_attribute_username:
 			if(dconf->attribute_username_set && dconf->attribute_username){
 				value = dconf->attribute_username;
@@ -451,6 +579,38 @@ static const char* get_config_value(request_rec *r, jwt_directive directive){
 				return DEFAULT_ATTRIBUTE_USERNAME;
 			}
 			break;
+	//added newly
+		case dir_attribute_cnname:
+					if(dconf->attribute_cnname_set && dconf->attribute_cnname){
+						value = dconf->attribute_cnname;
+					}else if(sconf->attribute_cnname_set && sconf->attribute_cnname){
+						value = sconf->attribute_cnname;
+					}else{
+						return DEFAULT_ATTRIBUTE_CNNAME;
+					}
+					break;
+					
+		//added newly
+		case dir_attribute_ouname:
+					if(dconf->attribute_ouname_set && dconf->attribute_ouname){
+						value = dconf->attribute_ouname;
+					}else if(sconf->attribute_ouname_set && sconf->attribute_ouname){
+						value = sconf->attribute_ouname;
+					}else{
+						return DEFAULT_ATTRIBUTE_OUNAME;
+					}
+					break;
+		//added newly
+		case dir_attribute_oname:
+					if(dconf->attribute_oname_set && dconf->attribute_oname){
+						value = dconf->attribute_oname;
+					}else if(sconf->attribute_oname_set && sconf->attribute_oname){
+						value = sconf->attribute_oname;
+					}else{
+						return DEFAULT_ATTRIBUTE_ONAME;
+					}
+					break;			
+					
 		case dir_delivery_type:
 			if(dconf->delivery_type_set && dconf->delivery_type){
 				value = dconf->delivery_type;
@@ -625,6 +785,24 @@ static const char *set_jwt_param(cmd_parms * cmd, void* config, const char* valu
 			conf->form_username = value;
 			conf->form_username_set = 1;
 		break;
+//added newly
+		case dir_form_cnname:
+			conf->form_cnname = value;
+			conf->form_cnname_set = 1;
+		break;
+		
+		//added newly
+		case dir_form_ouname:
+			conf->form_ouname = value;
+			conf->form_ouname_set = 1;
+		break;
+		
+		//added newly
+		case dir_form_oname:
+			conf->form_oname = value;
+			conf->form_oname_set = 1;
+		break;
+
 		case dir_form_password:
 			conf->form_password = value;
 			conf->form_password_set = 1;
@@ -632,6 +810,23 @@ static const char *set_jwt_param(cmd_parms * cmd, void* config, const char* valu
 		case dir_attribute_username:
 			conf->attribute_username = value;
 			conf->attribute_username_set = 1;
+		break;
+//newly added
+		case dir_attribute_cnname:
+			conf->attribute_cnname = value;
+			conf->attribute_cnname_set = 1;
+		break;
+		
+		//newly added
+		case dir_attribute_ouname:
+			conf->attribute_ouname = value;
+			conf->attribute_ouname_set = 1;
+		break;
+		
+		//newly added
+		case dir_attribute_oname:
+			conf->attribute_oname = value;
+			conf->attribute_oname_set = 1;
 		break;
 		case dir_delivery_type:
 			if(strcmp(value, JSON_DELIVERY) || strcmp(value, COOKIE_DELIVERY)) {
@@ -821,8 +1016,11 @@ static int auth_jwt_login_handler(request_rec *r){
 
  	int res;
  	char* buffer;
+
+
  	apr_off_t len;
  	apr_size_t size;
+
  	int rv;
 
 	if(r->method_number != M_POST){
@@ -846,17 +1044,28 @@ static int auth_jwt_login_handler(request_rec *r){
 		return res;
  	}
 
- 	char* fields[] = {(char *)get_config_value(r, dir_form_username), (char *)get_config_value(r, dir_form_password)};
+ 	//char* fields[] = {(char *)get_config_value(r, dir_form_username), (char *)get_config_value(r, dir_form_password)};
 
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
-							"auth_jwt authn: reading fields %s and %s", fields[0], fields[1]);
+ 	//Added newly
+ 	char* fields[] = {(char *)get_config_value(r, dir_form_username), (char *)get_config_value(r, dir_form_password),(char *)get_config_value(r, dir_form_cnname),(char *)get_config_value(r, dir_form_ouname),(char *)get_config_value(r, dir_form_oname)};
 
- 	char* sent_values[2];
+	
+//ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
+//"auth_jwt authn: reading fields %s and %s", fields[0], fields[1]);
+
+//Added newly
+ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
+							"auth_jwt authn: reading fields %s,%s,%s,%s and %s", fields[0], fields[1], fields[2],fields[3],fields[4]);
+
+ 	char* sent_values[5];
 
 	int i;
 	while (pairs && !apr_is_empty_array(pairs)) {
 		ap_form_pair_t *pair = (ap_form_pair_t *) apr_array_pop(pairs);
-		for(i=0;i<2;i++){
+
+			for(i=0;i<5;i++){
+				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
+							"auth_jwt authn: entered loop 1 with values %s", fields[i]);
 			if (fields[i] && !strcmp(pair->name, fields[i]) && &sent_values[i]) {
 				apr_brigade_length(pair->value, 1, &len);
 				size = (apr_size_t) len;
@@ -864,11 +1073,16 @@ static int auth_jwt_login_handler(request_rec *r){
 				apr_brigade_flatten(pair->value, buffer, &size);
 				buffer[len] = 0;
 				sent_values[i] = buffer;
+				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
+							"auth_jwt authn: exiting loop 1 with values %s", fields[i]);
 			}
 		}
  	}
-
-	for(i=0;i<2;i++){
+//added newly
+	
+	for(i=0;i<5;i++){
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
+							"auth_jwt authn: entered loop 2 with values %s", sent_values[i]);
 		if(!sent_values[i]){
 			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
 								"auth_jwt authn: the expected parameter %s is missing, aborting authentication", fields[i]);
@@ -879,10 +1093,13 @@ static int auth_jwt_login_handler(request_rec *r){
 	r->user = sent_values[USER_INDEX];
 
 	rv = check_authn(r, sent_values[USER_INDEX], sent_values[PASSWORD_INDEX]);
+	//rv = check_authn(r, sent_values[USER_INDEX], sent_values[PASSWORD_INDEX],sent_values[CO_INDEX]);
 
 	if(rv == OK){
 		char* token;
-		rv = create_token(r, &token, sent_values[USER_INDEX]);
+		//Added newly
+		//rv = create_token(r, &token, sent_values[USER_INDEX]);
+		rv = create_token(r, &token, sent_values[USER_INDEX],sent_values[CN_INDEX],sent_values[OU_INDEX],sent_values[O_INDEX]);
 		if(rv == OK){
 			char* delivery_type = (char *)get_config_value(r, dir_delivery_type);
 
@@ -906,7 +1123,9 @@ static int auth_jwt_login_handler(request_rec *r){
 }
 
 
-static int create_token(request_rec *r, char** token_str, const char* username){
+//static int create_token(request_rec *r, char** token_str, const char* username){
+//Added newly
+static int create_token(request_rec *r, char** token_str, const char* username, const char* cnname, const char* ouname, const char* oname){
 	
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55300)
 							"auth_jwt: creating token...");
@@ -973,6 +1192,16 @@ static int create_token(request_rec *r, char** token_str, const char* username){
 	const char* username_attribute = (const char *)get_config_value(r, dir_attribute_username);
 
 	token_add_claim(token, username_attribute, username);
+
+	//added newly
+
+	const char* cnname_attribute = (const char *)get_config_value(r, dir_attribute_cnname);
+	const char* ouname_attribute = (const char *)get_config_value(r, dir_attribute_ouname);
+	const char* oname_attribute = (const char *)get_config_value(r, dir_attribute_oname);
+
+	token_add_claim(token, cnname_attribute, cnname);
+	token_add_claim(token, ouname_attribute, ouname);
+	token_add_claim(token, oname_attribute, oname);
 
 	*token_str = token_encode_str(token);
 	token_free(token);
@@ -1080,8 +1309,10 @@ static int auth_jwt_authn_with_token(request_rec *r){
 
 	if (!current_auth || strncmp(current_auth, "jwt", 3) != 0) {
 		return DECLINED;
-	}
 
+	}
+	
+	
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55400)
 							"auth_jwt: checking authentication with token...");
 
@@ -1138,7 +1369,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		}
 	}
 
-	if(delivery_type & 4 && !token_str){
+	if((delivery_type & 4) && !token_str){
 		int cookie_remove = get_config_int_value(r, dir_cookie_remove);
 		const char* cookie_name = (char *)get_config_value(r, dir_cookie_name);
 		const char* cookieToken;
@@ -1173,35 +1404,9 @@ static int auth_jwt_authn_with_token(request_rec *r){
 						"auth_jwt authn: checking signature and fields correctness...");
 	rv = token_check(r, &token, token_str, key, keylen);
 
-
-
 	if(OK == rv){
 		
-		//  apr_pool_t *pool;
-		
-        //    apr_env_set ("SHLVL", "2", pool);
-
-
-           
-          const char* env_var = getenv("SHLVL");
-			
-			
-			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55406)
-							"auth_jwt authn: env var is correct %s" , env_var );
-							
-          // putenv(strdup("SHLVL=2"));
-		   
-		   setenv("SHLVL" , "2" , 1 );
-		   
-		  const char* env_var2 = getenv("SHLVL");
-			
-			
-			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55406)
-							"auth_jwt authn: env var is correct %s" , env_var2 );
-						
-		  
-		   
-		   
+	
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55406)
 							"auth_jwt authn: signature is correct");
 		const char* found_alg = token_get_alg(token);
@@ -1209,6 +1414,14 @@ static int auth_jwt_authn_with_token(request_rec *r){
 							"auth_jwt authn: algorithm found is %s", found_alg);
 		const char* attribute_username = (const char*)get_config_value(r, dir_attribute_username);
 		char* maybe_user = (char *)token_get_claim(token, attribute_username);
+		
+		
+		const char* attribute_ouname = (const char*)get_config_value(r, dir_attribute_ouname);
+		char* maybe_ou = (char *)token_get_claim(token, attribute_ouname);
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
+							"auth_jwt authn: ou found in token is %s", maybe_ou);
+		
+		
 		/*
 		 * User claim claim is optional
 		if(maybe_user == NULL){
@@ -1384,7 +1597,10 @@ static int token_check(request_rec *r, jwt_t **jwt, const char *token, const uns
 		NULL));
 		return HTTP_UNAUTHORIZED;
 	}
+	
+	
 
+	
 	/* check exp */
 	long exp = token_get_claim_int(*jwt, "exp");
 	if(exp>0){
@@ -1423,6 +1639,7 @@ static int token_check(request_rec *r, jwt_t **jwt, const char *token, const uns
 		NULL));
 		return HTTP_UNAUTHORIZED;
 	}
+
 	return 	OK;
 }
 
