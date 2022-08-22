@@ -1355,7 +1355,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 								"auth_jwt authn: reading Authorization header...");
 		char* authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");
 
-		if(authorization_header) {
+		/*if(authorization_header) {
 			if(strlen(authorization_header) > 7 && !strncmp(authorization_header, "Bearer ", 7)){
 				token_str = authorization_header+7;
 			} else {
@@ -1366,7 +1366,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		} else {
 			logCode = APLOGNO(55404);
 			logStr = "auth_jwt authn: missing Authorization header, responding with WWW-Authenticate header...";
-		}
+		}*/
 	}
 
 	if((delivery_type & 4) && !token_str){
