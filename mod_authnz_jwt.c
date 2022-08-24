@@ -1128,7 +1128,7 @@ ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 static int create_token(request_rec *r, char** token_str, const char* username, const char* cnname, const char* ouname, const char* oname){
 	
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55300)
-							"auth_jwt: creating token...");
+							"auth_jwt: creating token Checking Updated Token Akash------>...");
 
 	jwt_t *token;
 	int allocate = token_new(&token);
