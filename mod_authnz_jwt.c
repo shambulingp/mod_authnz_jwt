@@ -1314,7 +1314,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	
 	
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55400)
-							"auth_jwt: checking authentication with token...");
+							"auth_jwt: checking authentication with token Akash.............");
 
 	/* We need an authentication realm. */
 	if (!ap_auth_name(r)) {
