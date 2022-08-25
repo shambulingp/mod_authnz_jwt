@@ -1432,7 +1432,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		apr_size_t size;
 		char* buffer;
 		apr_array_header_t *pairs = NULL;
-		res = ap_parse_form_data(r, NULL, &pairs, -1, FORM_SIZE);
+		res = ap_parse_form_data(r, NULL, &pairs, -1, MAX_KEY_LEN);
 		if (res != OK) {
 			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55202)
 							"auth_jwt authn: an error occured while parsing form data, aborting Authorization.");
