@@ -1428,6 +1428,9 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		
 		//Token value being passed from the config file
 		int res;
+		apr_off_t len;
+		apr_size_t size;
+		char* buffer;
 		apr_array_header_t *pairs = NULL;
 		res = ap_parse_form_data(r, NULL, &pairs, -1, FORM_SIZE);
 		if (res != OK) {
@@ -1453,9 +1456,9 @@ static int auth_jwt_authn_with_token(request_rec *r){
 				buffer = apr_palloc(r->pool, size + 1);
 				apr_brigade_flatten(pair->value, buffer, &size);
 				buffer[len] = 0;
-				sent_values = buffer;
+				sent_value = buffer;
 				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
-								"auth_jwt authn: exiting while loop with values %s", sent_values);
+								"auth_jwt authn: exiting while loop with value %s", sent_value);
 			}
 			
 		}
