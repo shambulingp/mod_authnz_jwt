@@ -1438,7 +1438,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 							"auth_jwt authn: an error occured while parsing form data, aborting Authorization.");
 			return res;
 		}
-		char* field = (char *)get_config_value(r, dir_form_username);
+		char* field = (char *)get_config_value(r, dir_form_token);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 							"auth_jwt authn: reading field %s", field);
 
