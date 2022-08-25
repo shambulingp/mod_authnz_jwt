@@ -187,7 +187,7 @@ typedef enum {
 	dir_form_cnname,//added newly
 	dir_form_ouname, //added newly
 	dir_form_oname, //added newly
-	dir_from_token,   // Token added newly
+	dir_form_token,   // Token added newly
 	dir_form_password,
 	dir_attribute_username,
 	dir_attribute_cnname,//added newly
@@ -1424,7 +1424,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	if(delivery_type & 2) {
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 								"auth_jwt authn: reading Authorization header...");
-		#char* authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");
+		//char* authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");
 		
 		//Token value being passed from the config file
 		char* authorization_header = (const char *)get_config_value(r, dir_form_token);		
