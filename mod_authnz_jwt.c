@@ -1427,7 +1427,40 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		//char* authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");
 		
 		//Token value being passed from the config file
-		char* authorization_header = (const char *)get_config_value(r, dir_form_token);		
+		int res;
+		apr_array_header_t *pairs = NULL;
+		res = ap_parse_form_data(r, NULL, &pairs, -1, FORM_SIZE);
+		if (res != OK) {
+			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55202)
+							"auth_jwt authn: an error occured while parsing form data, aborting Authorization.");
+			return res;
+		}
+		char* field = {(char *)get_config_value(r, dir_form_username);
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
+							"auth_jwt authn: reading field %s", field);
+
+		char* sent_value;
+		
+		int i;
+		while (pairs && !apr_is_empty_array(pairs)) {
+			ap_form_pair_t *pair = (ap_form_pair_t *) apr_array_pop(pairs);
+
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
+								"auth_jwt authn: entered while loop with field %s", field);
+			if (field && !strcmp(pair->name, field) && &sent_value) {
+				apr_brigade_length(pair->value, 1, &len);
+				size = (apr_size_t) len;
+				buffer = apr_palloc(r->pool, size + 1);
+				apr_brigade_flatten(pair->value, buffer, &size);
+				buffer[len] = 0;
+				sent_values = buffer;
+				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
+								"auth_jwt authn: exiting while loop with values %s", sent_values);
+			}
+			
+		}
+		
+		char* authorization_header = sent_value;		
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 								"auth_jwt authn: authorization_header :: %s",authorization_header);
 		
