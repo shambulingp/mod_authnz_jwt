@@ -1426,7 +1426,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 								//"auth_jwt authn: reading Authorization header...");
 		
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"auth_jwt authn: reading Authorization headerss :: %s", r->headers_in);
+								"auth_jwt authn: reading Authorization headerss :: %s", headers_in);
 		
 		//char* authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");
 		
