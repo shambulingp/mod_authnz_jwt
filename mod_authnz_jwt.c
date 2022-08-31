@@ -1430,8 +1430,8 @@ static int auth_jwt_authn_with_token(request_rec *r){
 								"auth_jwt authn: reading Authorization headers---> :: %s", r->uri);
 		
 		
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55228)
-							"user '%s' not found -------->: %s", username, r->headers_in);
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55228)
+							"user '%s' not found -------->: %s", r->headers_in);
 		
 		//char* authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");
 		
