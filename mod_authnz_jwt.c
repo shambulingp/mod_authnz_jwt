@@ -1427,7 +1427,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
         	char line1 = $"{r.Method} {r.Scheme}://{r.Host}{r.Path} {r.Protocol}";
         	
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"auth_jwt authn: reading Authorization headers---> :: %s", line1);
+								"auth_jwt authn: reading Authorization headers---> :: %s", *r->headers_in);
 		
 		
 		
