@@ -233,6 +233,7 @@ static int check_authn(request_rec *r, const char *username, const char *passwor
 static int create_token(request_rec *r, char** token_str, const char* username, const char* cnname, const char* ouname, const char* oname);
 
 static int auth_jwt_authn_with_token(request_rec *r);
+static char* replaceWord(const char* s, const char* oldW, const char* newW);
 
 static void get_encode_key(request_rec* r, const char* algorithm, unsigned char* key, unsigned int* keylen);
 static void get_decode_key(request_rec* r, unsigned char* key, unsigned int* keylen);
@@ -1368,6 +1369,43 @@ static int check_authn(request_rec *r, const char *username, const char *passwor
 }
 
 
+static char* replaceWord(const char* s, const char* oldW, const char* newW)
+{
+	char* result;
+	int i, cnt = 0;
+	int newWlen = strlen(newW);
+	int oldWlen = strlen(oldW);
+
+	// Counting the number of times old word
+	// occur in the string
+	for (i = 0; s[i] != '\0'; i++) {
+		if (strstr(&s[i], oldW) == &s[i]) {
+			cnt++;
+
+			// Jumping to index after the old word.
+			i += oldWlen - 1;
+		}
+	}
+
+	// Making new string of enough length
+	result = (char*)malloc(i + cnt * (newWlen - oldWlen) + 1);
+
+	i = 0;
+	while (*s) {
+		// compare the substring with the result
+		if (strstr(s, oldW) == s) {
+			strcpy(&result[i], newW);
+			i += newWlen;
+			s += oldWlen;
+		}
+		else
+			result[i++] = *s++;
+	}
+
+	result[i] = '\0';
+	return result;
+}
+
 /*
 If we are configured to handle authentication, let's look up headers to find
 whether or not 'Authorization' is set. If so, exepected format is
@@ -1484,7 +1522,9 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 								"auth_jwt authn: reading Query String...%s", r->args);
 
-		char* authorization_header = r->args;
+		char oldW[] = "%20";
+		char newW[] = " ";
+		char* authorization_header = replaceWord(r->args, oldW,newW);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 								"auth_jwt authn: authorization_header :: %s",authorization_header);
 		
