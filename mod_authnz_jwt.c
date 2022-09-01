@@ -1422,24 +1422,11 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	}
 
 	if(delivery_type & 2) {
-		//ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								//"auth_jwt authn: reading Authorization header...");
-        	
-        	
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"auth_jwt authn: reading Authorization headers---> :: %s", r->uri);
-		
-		
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55228)
-							"user '%s' not found -------->: %s", r->headers_in);
-							
-		if (r->args) {
-			ap_rprintf(r, "Your query string was: %s", r->args);
-			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"auth_jwt authn: reading Query String...%s", r->args);
-		}
+								//"auth_jwt authn: reading Authorization header...");
 
-								
+		/* 
+		//Reading Header info						
 	const apr_array_header_t    *fields;
     int                         j;
     apr_table_entry_t           *e = 0;
@@ -1452,9 +1439,9 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 								"apr_table_get Key & Values === <b>%s</b>: %s<br/>", e[j].key, e[j].val);
     }
-		
+	*/	
 		//char* authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");
-		
+		/*
 		//Token value being passed from the config file
 		int res;
 		apr_off_t len;
@@ -1492,7 +1479,13 @@ static int auth_jwt_authn_with_token(request_rec *r){
 			
 		}
 		
-		char* authorization_header = sent_value;		
+		char* authorization_header = sent_value;
+*/	
+		// Reading Authorization header info through query param
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+								"auth_jwt authn: reading Query String...%s", r->args);
+
+		char* authorization_header = r->args;
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 								"auth_jwt authn: authorization_header :: %s",authorization_header);
 		
