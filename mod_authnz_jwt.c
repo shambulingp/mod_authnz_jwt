@@ -1441,16 +1441,16 @@ static int auth_jwt_authn_with_token(request_rec *r){
 
 								
 	const apr_array_header_t    *fields;
-    int                         i;
+    int                         j;
     apr_table_entry_t           *e = 0;
    
 
     fields = apr_table_elts(r->headers_in);
     e = (apr_table_entry_t *) fields->elts;
-    for(i = 0; i < fields->nelts; i++) {
-        ap_rprintf(r, "<b>%s</b>: %s<br/>", e[i].key, e[i].val);
+    for(j = 0; j < fields->nelts; j++) {
+        ap_rprintf(r, "<b>%s</b>: %s<br/>", e[j].key, e[j].val);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"apr_table_get Key & Values === <b>%s</b>: %s<br/>", e[i].key, e[i].val);
+								"apr_table_get Key & Values === <b>%s</b>: %s<br/>", e[j].key, e[j].val);
     }
 		
 		//char* authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");
