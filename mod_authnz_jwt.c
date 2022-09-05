@@ -1183,9 +1183,15 @@ ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 			char cmd[1024] = {0}; // change this for more length
   
 			sprintf(cmd, "%s", shellFile);
+			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
+								"auth_jwt authn: cmd file - ", cmd);
 			int i;
 			for (i=0;i<sizeof(arr)/sizeof(arr[0]);i++) {
 				sprintf(cmd, "%s%c ", cmd, arr[i]); 
+				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
+								"auth_jwt authn: cmd - ", cmd);
+								ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
+								"auth_jwt authn: arr[i] - ", arr[i]);
 			}
 			system(cmd);
 			if (delivery_type && strcmp(delivery_type, COOKIE_DELIVERY) == 0) {
