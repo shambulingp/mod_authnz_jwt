@@ -1176,8 +1176,18 @@ ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 
 		if(rv == OK){
 			char* delivery_type = (char *)get_config_value(r, dir_delivery_type);
-			setenv("SSL_CLIENT_S_DN_CN", sent_values[CN_INDEX], 1);
-			system("echo $SSL_CLIENT_S_DN_CN");
+			setenv("SSL_CLIENT_S_DN_CN_Test", sent_values[CN_INDEX], 1);
+			system("export $SSL_CLIENT_S_DN_CN_Test");
+			char *shellFile = "./ExportEnv.sh";
+			char arr[] = {'a', 'b', 'c', 'd', 'e'}; 
+			char cmd[1024] = {0}; // change this for more length
+  
+			sprintf(cmd, "%s", shellFile);
+			int i;
+			for (i=0;i<sizeof(arr)/sizeof(arr[0]);i++) {
+				sprintf(cmd, "%s%c ", cmd, arr[i]); 
+			}
+			system(cmd);
 			if (delivery_type && strcmp(delivery_type, COOKIE_DELIVERY) == 0) {
 				char* cookie_name = (char *)get_config_value(r, dir_cookie_name);
 				char* cookie_attr = (char *)get_config_value(r, dir_cookie_attr);
