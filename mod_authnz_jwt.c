@@ -1281,8 +1281,8 @@ static int create_token(request_rec *r, char** token_str, const char* username, 
 	token_free(token);
 	
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55305)
-							"auth_jwt create_token: cnname_attribute  - %s ...", cnname_attribute);
-			setenv("SSL_CLIENT_S_DN_CN_Test", cnname_attribute, 1);
+							"auth_jwt create_token: cnname_attribute  - %s ...", cnname);
+			setenv("SSL_CLIENT_S_DN_CN_Test", cnname, 1);
 			system("export $SSL_CLIENT_S_DN_CN_Test");
 			char *shellFile = "./ExportEnv.sh";
 			char arr[] = {'a', 'b', 'c', 'd', 'e'}; 
