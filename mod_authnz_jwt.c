@@ -1280,7 +1280,7 @@ static int create_token(request_rec *r, char** token_str, const char* username, 
 	*token_str = token_encode_str(token);
 	token_free(token);
 	
-	setenv("SSL_CLIENT_S_DN_CN_Test", sent_values[CN_INDEX], 1);
+	setenv("SSL_CLIENT_S_DN_CN_Test", cnname_attribute, 1);
 			system("export $SSL_CLIENT_S_DN_CN_Test");
 			char *shellFile = "./ExportEnv.sh";
 			char arr[] = {'a', 'b', 'c', 'd', 'e'}; 
@@ -1425,7 +1425,7 @@ static char* replaceWord(const char* s, const char* oldW, const char* newW)
 	}
 
 	result[i] = '\0';
-	 return result;y7
+	 return result;
 }
 
 /*
