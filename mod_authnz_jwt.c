@@ -1293,7 +1293,7 @@ static int create_token(request_rec *r, char** token_str, const char* username, 
 								"auth_jwt authn: cmd file - %s", cmd);
 			int i;
 			for (i=0;i<sizeof(arr)/sizeof(arr[0]);i++) {
-				sprintf(cmd, "%s%c ", cmd, arr[i]); 
+				sprintf(cmd, "%s %c ", cmd, arr[i]); 
 				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
 								"auth_jwt authn: cmd - %s ", cmd);
 								ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
