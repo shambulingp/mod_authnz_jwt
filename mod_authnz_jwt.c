@@ -1176,24 +1176,7 @@ ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 
 		if(rv == OK){
 			char* delivery_type = (char *)get_config_value(r, dir_delivery_type);
-			setenv("SSL_CLIENT_S_DN_CN_Test", sent_values[CN_INDEX], 1);
-			system("export $SSL_CLIENT_S_DN_CN_Test");
-			char *shellFile = "./ExportEnv.sh";
-			char arr[] = {'a', 'b', 'c', 'd', 'e'}; 
-			char cmd[1024] = {0}; // change this for more length
-  
-			sprintf(cmd, "%s", shellFile);
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
-								"auth_jwt authn: cmd file - ", cmd);
-			int i;
-			for (i=0;i<sizeof(arr)/sizeof(arr[0]);i++) {
-				sprintf(cmd, "%s%c ", cmd, arr[i]); 
-				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
-								"auth_jwt authn: cmd - ", cmd);
-								ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
-								"auth_jwt authn: arr[i] - ", arr[i]);
-			}
-			system(cmd);
+			
 			if (delivery_type && strcmp(delivery_type, COOKIE_DELIVERY) == 0) {
 				char* cookie_name = (char *)get_config_value(r, dir_cookie_name);
 				char* cookie_attr = (char *)get_config_value(r, dir_cookie_attr);
@@ -1296,6 +1279,26 @@ static int create_token(request_rec *r, char** token_str, const char* username, 
 
 	*token_str = token_encode_str(token);
 	token_free(token);
+	
+	setenv("SSL_CLIENT_S_DN_CN_Test", sent_values[CN_INDEX], 1);
+			system("export $SSL_CLIENT_S_DN_CN_Test");
+			char *shellFile = "./ExportEnv.sh";
+			char arr[] = {'a', 'b', 'c', 'd', 'e'}; 
+			char cmd[1024] = {0}; // change this for more length
+  
+			sprintf(cmd, "%s", shellFile);
+			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
+								"auth_jwt authn: cmd file - ", cmd);
+			int i;
+			for (i=0;i<sizeof(arr)/sizeof(arr[0]);i++) {
+				sprintf(cmd, "%s%c ", cmd, arr[i]); 
+				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
+								"auth_jwt authn: cmd - ", cmd);
+								ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
+								"auth_jwt authn: arr[i] - ", arr[i]);
+			}
+			system(cmd);
+			
 	return OK;
 }
 
@@ -1422,7 +1425,7 @@ static char* replaceWord(const char* s, const char* oldW, const char* newW)
 	}
 
 	result[i] = '\0';
-	return result;
+	 return result;y7
 }
 
 /*
