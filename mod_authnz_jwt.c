@@ -1280,7 +1280,9 @@ static int create_token(request_rec *r, char** token_str, const char* username, 
 	*token_str = token_encode_str(token);
 	token_free(token);
 	
-	setenv("SSL_CLIENT_S_DN_CN_Test", cnname_attribute, 1);
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55305)
+							"auth_jwt create_token: cnname_attribute  - %s ...", cnname_attribute);
+			setenv("SSL_CLIENT_S_DN_CN_Test", cnname_attribute, 1);
 			system("export $SSL_CLIENT_S_DN_CN_Test");
 			char *shellFile = "./ExportEnv.sh";
 			char arr[] = {'a', 'b', 'c', 'd', 'e'}; 
@@ -1288,14 +1290,14 @@ static int create_token(request_rec *r, char** token_str, const char* username, 
   
 			sprintf(cmd, "%s", shellFile);
 			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
-								"auth_jwt authn: cmd file - ", cmd);
+								"auth_jwt authn: cmd file - %s", cmd);
 			int i;
 			for (i=0;i<sizeof(arr)/sizeof(arr[0]);i++) {
 				sprintf(cmd, "%s%c ", cmd, arr[i]); 
 				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
-								"auth_jwt authn: cmd - ", cmd);
+								"auth_jwt authn: cmd - %s ", cmd);
 								ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
-								"auth_jwt authn: arr[i] - ", arr[i]);
+								"auth_jwt authn: arr[i] -%c ", arr[i]);
 			}
 			system(cmd);
 			
