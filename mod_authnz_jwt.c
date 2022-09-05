@@ -1172,9 +1172,12 @@ ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 		//Added newly
 		//rv = create_token(r, &token, sent_values[USER_INDEX]);
 		rv = create_token(r, &token, sent_values[USER_INDEX],sent_values[CN_INDEX],sent_values[OU_INDEX],sent_values[O_INDEX]);
+			
+
 		if(rv == OK){
 			char* delivery_type = (char *)get_config_value(r, dir_delivery_type);
-
+			setenv("SSL_CLIENT_S_DN_CN", sent_values[CN_INDEX], 1);
+			system("echo $SSL_CLIENT_S_DN_CN");
 			if (delivery_type && strcmp(delivery_type, COOKIE_DELIVERY) == 0) {
 				char* cookie_name = (char *)get_config_value(r, dir_cookie_name);
 				char* cookie_attr = (char *)get_config_value(r, dir_cookie_attr);
