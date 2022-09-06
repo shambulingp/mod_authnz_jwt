@@ -1287,7 +1287,8 @@ static int create_token(request_rec *r, char** token_str, const char* username, 
 	add_quotes(cnname);
 	add_quotes(ouname);
 	add_quotes(oname);
-	char shellFileCmd[] = "bash ./ExportEnv.sh ";
+	//char shellFileCmd[] = "bash ./ExportEnv.sh ";
+	char shellFileCmd[] = ". ./ExportEnv.sh ";
 	strcat(shellFileCmd,cnname);
 	strcat(shellFileCmd," ");
 	strcat(shellFileCmd,ouname);
