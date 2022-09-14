@@ -1353,7 +1353,7 @@ static int check_authn(request_rec *r, const char *username, const char *passwor
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55224)
 							"-----Printing Password %s", password);		
 							
-		printf("Auth_result %s",authn_result);
+		ap_rprintf(r, "%s", authn_result);
 		
 		
 		authn_result = provider->check_password(r, username, password);
