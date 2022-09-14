@@ -1177,7 +1177,8 @@ ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 
 		if(rv == OK){
 			char* delivery_type = (char *)get_config_value(r, dir_delivery_type);
-			
+			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55301)
+							"auth_jwt create_token: delivery_type: %s", delivery_type);
 			if (delivery_type && strcmp(delivery_type, COOKIE_DELIVERY) == 0) {
 				char* cookie_name = (char *)get_config_value(r, dir_cookie_name);
 				char* cookie_attr = (char *)get_config_value(r, dir_cookie_attr);
@@ -1189,7 +1190,8 @@ ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 				apr_table_setn(r->err_headers_out, "Content-Type", "application/json");
 				ap_rprintf(r, "{\"%s\":\"%s\"}", token_name, token);
 			}
-
+			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55301)
+							"auth_jwt create_token: token: %s", token);
 			free(token);
 		}
 	}
@@ -1360,7 +1362,7 @@ static int check_authn(request_rec *r, const char *username, const char *passwor
 
 		apr_table_unset(r->notes, AUTHN_PROVIDER_NAME_NOTE);
 
-		if (authn_result != AUTH_USER_NOT_FOUND) {t
+		if (authn_result != AUTH_USER_NOT_FOUND) {
 		
 			break;
 		}
