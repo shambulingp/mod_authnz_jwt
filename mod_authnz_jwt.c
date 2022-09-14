@@ -1,2002 +1,322 @@
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-/*
-* Copyright 2016 Anthony Deroche <anthony@deroche.me>
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-// RFC 7519 compliant library
-#include "jwt.h"
-#include <errno.h>
-//JSON library
-#include "jansson.h"
-
-#include "apr_strings.h"
-#include "apr_lib.h"
-#include "apr_base64.h"
-#include "apr_hooks.h"
-#include "apr.h"
-#include "apr_env.h"
-#include "apr_pools.h"
-
-#include "apr_file_io.h"
-#include "apr_file_info.h"
-#include "apr_errno.h"
-#include "apr_general.h"
-#include "apr_lib.h"
-#include "apr_thread_proc.h"
-
-
-#include "ap_config.h"
+#include "ap_provider.h"
 #include "httpd.h"
 #include "http_config.h"
-#include "http_core.h"
 #include "http_log.h"
-#include "http_protocol.h"
 #include "http_request.h"
-#include "ap_provider.h"
-#include "util_cookies.h"
-
+#include "apr_lib.h"
+#include "apr_dbd.h"
+#include "mod_dbd.h"
+#include "apr_strings.h"
 #include "mod_auth.h"
+#include "apr_md5.h"
+#include "apu_version.h"
 
-#define JWT_LOGIN_HANDLER "jwt-login-handler"
-#define JWT_LOGOUT_HANDLER "jwt-login-handler"
-#define USER_INDEX 0
-#define PASSWORD_INDEX 1
-//added newly
-#define CN_INDEX 2
-#define OU_INDEX 3
-#define O_INDEX 4
-#define FORM_SIZE 512
-#define MAX_KEY_LEN 16384
-
-#define DEFAULT_EXP_DELAY 1800
-#define DEFAULT_NBF_DELAY 0
-#define DEFAULT_LEEWAY 0
-
-#define DEFAULT_FORM_USERNAME "user"
-#define DEFAULT_FORM_PASSWORD "password"
-#define DEFAULT_FORM_CNNAME "cn" //added newly
-#define DEFAULT_FORM_OUNAME "ou" //added newly
-#define DEFAULT_FORM_ONAME "o" //added newly
-#define DEFAULT_FORM_TOKEN "token" //Token added newly
-#define DEFAULT_ATTRIBUTE_USERNAME "user"
-#define DEFAULT_ATTRIBUTE_CNNAME "cn" //added newly
-#define DEFAULT_ATTRIBUTE_OUNAME "ou" //added newly
-#define DEFAULT_ATTRIBUTE_ONAME "o" //added newly
-#define DEFAULT_ATTRIBUTE_TOKEN "token" //Token added newly
-#define DEFAULT_SIGNATURE_ALGORITHM "HS256"
-#define DEFAULT_TOKEN_NAME "token"
-#define DEFAULT_COOKIE_NAME "AuthToken"
-#define DEFAULT_COOKIE_ATTR "Secure;HttpOnly;SameSite"
-#define DEFAULT_COOKIE_REMOVE 1
-
-#define JSON_DELIVERY "Json"
-#define COOKIE_DELIVERY "Cookie"
-#define DEFAULT_DELIVERY_TYPE JSON_DELIVERY
-
-
-
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  CONFIGURATION STRUCTURE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  */
+module AP_MODULE_DECLARE_DATA authn_dbd_module;
 
 typedef struct {
-	authn_provider_list *providers;
+    const char *user;
+    const char *realm;
+    const char *auth;
+} authn_dbd_conf;
+typedef struct {
+    const char *label;
+    const char *query;
+} authn_dbd_rec;
 
-	const char* signature_algorithm;
-	int signature_algorithm_set;
-
-	const char* signature_shared_secret;
-	int signature_shared_secret_set;
-
-	const char* signature_public_key_file;
-	int signature_public_key_file_set;
-
-	const char* signature_private_key_file;
-	int signature_private_key_file_set;
-
-	int exp_delay;
-	int exp_delay_set;
-
-	int nbf_delay;
-	int nbf_delay_set;
-
-	int leeway;
-	int leeway_set;
-
-	const char* iss;
-	int iss_set;
-
-	const char* aud;
-	int aud_set;
-
-	const char* form_username;
-	int form_username_set;
-	//added newly
-	const char* form_cnname;
-	int form_cnname_set;
-	const char* form_ouname;
-	int form_ouname_set;
-	const char* form_oname;
-	int form_oname_set;
-
-	const char* form_password;
-	int form_password_set;
-	
-	// Token added newly
-	const char* form_token;
-	int form_token_set;
-
-	const char* attribute_username;
-	int attribute_username_set;
-
-	//added newly
-	const char* attribute_cnname;
-	int attribute_cnname_set;
-	const char* attribute_ouname;
-	int attribute_ouname_set;
-	const char* attribute_oname;
-	int attribute_oname_set;
-	
-	//Token added newly
-	const char* attribute_token;
-	int attribute_token_set;
-
-	const char* delivery_type;
-	int delivery_type_set;
-
-	const char* token_name;
-	int token_name_set;
-
-	const char* cookie_name;
-	int cookie_name_set;
-
-	const char* cookie_attr;
-	int cookie_attr_set;
-
-	int cookie_remove;
-	int cookie_remove_set;
-
-	char *dir;
-
-} auth_jwt_config_rec;
-
-typedef enum { 
-	dir_signature_algorithm, 
-	dir_signature_shared_secret, 
-	dir_signature_public_key_file,
-	dir_signature_private_key_file,
-	dir_exp_delay, 
-	dir_nbf_delay, 
-	dir_iss,
-	dir_aud, 
-	dir_leeway,
-	dir_form_username, // added newly
-	dir_form_cnname,//added newly
-	dir_form_ouname, //added newly
-	dir_form_oname, //added newly
-	dir_form_token,   // Token added newly
-	dir_form_password,
-	dir_attribute_username,
-	dir_attribute_cnname,//added newly
-	dir_attribute_ouname,//added newly
-	dir_attribute_oname,//added newly
-	dir_attribute_token, // Token added newly
-	dir_delivery_type,
-	dir_token_name,
-	dir_cookie_name,
-	dir_cookie_attr,
-	dir_cookie_remove,
-} jwt_directive;
-
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  FUNCTIONS HEADERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  */
+/* optional function - look it up once in post_config */
+static ap_dbd_t *(*authn_dbd_acquire_fn)(request_rec*) = NULL;
+static void (*authn_dbd_prepare_fn)(server_rec*, const char*, const char*) = NULL;
+static APR_OPTIONAL_FN_TYPE(ap_authn_cache_store) *authn_cache_store = NULL;
+#define AUTHN_CACHE_STORE(r,user,realm,data) \
+    if (authn_cache_store != NULL) \
+        authn_cache_store((r), "dbd", (user), (realm), (data))
 
 
-static void *create_auth_jwt_dir_config(apr_pool_t *p, char *d);
-static void *create_auth_jwt_config(apr_pool_t * p, server_rec *s);
-static void *merge_auth_jwt_dir_config(apr_pool_t *p, void* basev, void* addv);
-static void *merge_auth_jwt_config(apr_pool_t *p, void* basev, void* addv);
-static void register_hooks(apr_pool_t * p);
-
-static const char *add_authn_provider(cmd_parms * cmd, void *config, const char *arg);
-static const char *set_jwt_param(cmd_parms * cmd, void* config, const char* value);
-static const char *set_jwt_int_param(cmd_parms * cmd, void* config, const char* value);
-static const char* get_config_value(request_rec *r, jwt_directive directive);
-static const int get_config_int_value(request_rec *r, jwt_directive directive);
-
-static const char *jwt_parse_config(cmd_parms *cmd, const char *require_line, const void **parsed_require_line);
-static authz_status jwtclaim_check_authorization(request_rec *r, const char* require_args, const void *parsed_require_args);
-static authz_status jwtclaimarray_check_authorization(request_rec *r, const char* require_args, const void *parsed_require_args);
-static const authz_provider authz_jwtclaim_provider = {
-	&jwtclaim_check_authorization,
-	&jwt_parse_config
-};
-static const authz_provider authz_jwtclaimarray_provider = {
-	&jwtclaimarray_check_authorization,
-	&jwt_parse_config
-};
-
-static int auth_jwt_login_handler(request_rec *r);
-static int check_authn(request_rec *r, const char *username, const char *password);
-static int create_token(request_rec *r, char** token_str, const char* username, const char* cnname, const char* ouname, const char* oname);
-
-static int auth_jwt_authn_with_token(request_rec *r);
-static char* replaceWord(const char* s, const char* oldW, const char* newW);
-static void add_quotes(char *s);
-
-static void get_encode_key(request_rec* r, const char* algorithm, unsigned char* key, unsigned int* keylen);
-static void get_decode_key(request_rec* r, unsigned char* key, unsigned int* keylen);
-static int token_check(request_rec *r, jwt_t **jwt, const char *token, const unsigned char *key, unsigned int keylen);
-static int token_decode(jwt_t **jwt, const char* token, const unsigned char *key, unsigned int keylen);
-static int token_new(jwt_t **jwt);
-static const char* token_get_claim(jwt_t *token, const char* claim);
-static long token_get_claim_int(jwt_t *token, const char* claim);
-static int token_add_claim(jwt_t *jwt, const char *claim, const char *val);
-static int token_add_claim_int(jwt_t *jwt, const char *claim, long val);
-static void token_free(jwt_t *token);
-static int token_set_alg(request_rec *r, jwt_t *jwt, const char* alg, const unsigned char *key, unsigned int keylen);
-static char *token_encode_str(jwt_t *jwt);
-static char** token_get_claim_array_of_string(request_rec* r, jwt_t *token, const char* claim, int* len);
-static json_t* token_get_claim_array(request_rec* r, jwt_t *token, const char* claim);
-static json_t* token_get_claim_json(request_rec* r, jwt_t *token, const char* claim);
-static const char* token_get_alg(jwt_t *jwt);
-static jwt_alg_t parse_alg(const char* signature_algorithm);
-
-
-
-
-
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  DECLARE DIRECTIVES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  */
-
-static const command_rec auth_jwt_cmds[] =
+static void *authn_dbd_cr_conf(apr_pool_t *pool, char *dummy)
 {
-
-	AP_INIT_TAKE1("AuthJWTSignatureAlgorithm", set_jwt_param, (void *)dir_signature_algorithm, RSRC_CONF|OR_AUTHCFG,
-					"The algorithm to use to sign tokens"),
-	AP_INIT_TAKE1("AuthJWTSignatureSharedSecret", set_jwt_param, (void *)dir_signature_shared_secret, RSRC_CONF|OR_AUTHCFG,
-					"The shared secret to use to sign tokens with HMACs"),
-	AP_INIT_TAKE1("AuthJWTSignaturePublicKeyFile", set_jwt_param, (void *)dir_signature_public_key_file, RSRC_CONF|OR_AUTHCFG,
-					"The file containing public key used to check signatures"),
-	AP_INIT_TAKE1("AuthJWTSignaturePrivateKeyFile", set_jwt_param, (void *)dir_signature_private_key_file, RSRC_CONF|OR_AUTHCFG,
-					"The file containing private key used to sign tokens"),
-	AP_INIT_TAKE1("AuthJWTIss", set_jwt_param, (void *)dir_iss, RSRC_CONF|OR_AUTHCFG,
-					"The issuer of delievered tokens"),
-	AP_INIT_TAKE1("AuthJWTAud", set_jwt_param, (void *)dir_aud, RSRC_CONF|OR_AUTHCFG,
-					"The audience of delivered tokens"),
-   	AP_INIT_TAKE1("AuthJWTExpDelay", set_jwt_int_param, (void *)dir_exp_delay, RSRC_CONF|OR_AUTHCFG,
-					"The time delay in seconds after which delivered tokens are considered invalid"),
-   	AP_INIT_TAKE1("AuthJWTNbfDelay", set_jwt_int_param, (void *)dir_nbf_delay, RSRC_CONF|OR_AUTHCFG,
-					"The time delay in seconds before which delivered tokens must not be processed"),
-   	AP_INIT_TAKE1("AuthJWTLeeway", set_jwt_int_param, (void *)dir_leeway, RSRC_CONF|OR_AUTHCFG,
-					"The leeway to account for clock skew in token validation process"),
-	AP_INIT_ITERATE("AuthJWTProvider", add_authn_provider, NULL, OR_AUTHCFG,
-					"Specify the auth providers for a directory or location"),
-	AP_INIT_TAKE1("AuthJWTFormUsername", set_jwt_param, (void *)dir_form_username, RSRC_CONF|OR_AUTHCFG,
-					"The name of the field containing the username in authentication process"),
-	//Added newly
-	AP_INIT_TAKE1("AuthJWTFormcnname", set_jwt_param, (void *)dir_form_cnname, RSRC_CONF|OR_AUTHCFG,
-										"The name of the field containing the cnname in authentication process"),
-	//Added newly
-	AP_INIT_TAKE1("AuthJWTFormouname", set_jwt_param, (void *)dir_form_ouname, RSRC_CONF|OR_AUTHCFG,
-										"The name of the field containing the ouname in authentication process"),
-	//Added newly										
-	AP_INIT_TAKE1("AuthJWTFormoname", set_jwt_param, (void *)dir_form_oname, RSRC_CONF|OR_AUTHCFG,
-										"The name of the field containing the oname in authentication process"),
-	//Token added newly										
-	AP_INIT_TAKE1("AuthJWTFormtoken", set_jwt_param, (void *)dir_form_token, RSRC_CONF|OR_AUTHCFG,
-										"The name of the field containing the oname in authentication process"),									
-	AP_INIT_TAKE1("AuthJWTFormPassword", set_jwt_param, (void *)dir_form_password, RSRC_CONF|OR_AUTHCFG,
-					"The name of the field containing the password in authentication process"),
-	AP_INIT_TAKE1("AuthJWTAttributeUsername", set_jwt_param, (void *)dir_attribute_username, RSRC_CONF|OR_AUTHCFG,
-					"The name of the attribute containing the username in the token"),
-	//Added newly
-	AP_INIT_TAKE1("AuthJWTAttributecnname", set_jwt_param, (void *)dir_attribute_cnname, RSRC_CONF|OR_AUTHCFG,
-									"The name of the attribute containing the cnname in the token"),
-	//Added newly								
-	AP_INIT_TAKE1("AuthJWTAttributeouname", set_jwt_param, (void *)dir_attribute_ouname, RSRC_CONF|OR_AUTHCFG,
-									"The name of the attribute containing the ouname in the token"),
-	//Added newly								
-	AP_INIT_TAKE1("AuthJWTAttributeoname", set_jwt_param, (void *)dir_attribute_oname, RSRC_CONF|OR_AUTHCFG,
-									"The name of the attribute containing the oname in the token"),	
-	//Token added newly								
-    AP_INIT_TAKE1("AuthJWTAttributetoken", set_jwt_param, (void *)dir_attribute_token, RSRC_CONF|OR_AUTHCFG,
-									"The name of the attribute containing the oname in the token"),										
-	AP_INIT_TAKE1("AuthJWTDeliveryType", set_jwt_param, (void *)dir_delivery_type, RSRC_CONF|OR_AUTHCFG,
-					"Type of token delivery Json (default) or Cookie"),
-	AP_INIT_TAKE1("AuthJWTTokenName", set_jwt_param, (void *)dir_token_name, RSRC_CONF|OR_AUTHCFG,
-					"Token name to use when using JSON delivery"),
-	AP_INIT_TAKE1("AuthJWTCookieName", set_jwt_param, (void *)dir_cookie_name, RSRC_CONF|OR_AUTHCFG,
-					"Cookie name to use when using cookie delivery"),
-	AP_INIT_TAKE1("AuthJWTCookieAttr", set_jwt_param, (void *)dir_cookie_attr, RSRC_CONF|OR_AUTHCFG,
-					"semi-colon separated attributes for cookie when using cookie delivery. default: "DEFAULT_COOKIE_ATTR),
-	AP_INIT_TAKE1("AuthJWTRemoveCookie", set_jwt_int_param, (void *)dir_cookie_remove, RSRC_CONF|OR_AUTHCFG,
-					"Remove cookie from the headers, and thus keep it private from the backend. default: 1"),
-	{NULL}
-};
-
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  DEFAULT CONFIGURATION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  */
-
-/* PER DIR CONFIGURATION */
-static void *create_auth_jwt_dir_config(apr_pool_t *p, char *d){
-	auth_jwt_config_rec *conf = (auth_jwt_config_rec*) apr_pcalloc(p, sizeof(*conf));
-	conf->dir = d;
-
-	conf->signature_algorithm_set = 0;
-	conf->signature_shared_secret_set = 0;
-	conf->signature_public_key_file_set = 0;
-	conf->signature_private_key_file_set = 0;
-	conf->exp_delay_set = 0;
-	conf->nbf_delay_set = 0;
-	conf->leeway_set = 0;
-	conf->iss_set = 0;
-	conf->aud_set = 0;
-	conf->form_username_set=0;
-	conf->form_cnname_set=0;//added newly
-	conf->form_ouname_set=0;//added newly
-	conf->form_oname_set=0;//added newly
-	conf->form_token_set=0;//Token added newly 
-	conf->form_password_set=0;
-	conf->attribute_username_set=0;
-	conf->attribute_cnname_set=0;//added newly
-	conf->attribute_ouname_set=0;//added newly
-	conf->attribute_oname_set=0;//added newly
-	conf->attribute_token_set=0;//Token added newly
-	conf->delivery_type_set=0;
-	conf->token_name_set=0;
-	conf->cookie_name_set=0;
-	conf->cookie_attr_set=0;
-	conf->cookie_remove_set=0;
-
-	return (void *)conf;
+    authn_dbd_conf *ret = apr_pcalloc(pool, sizeof(authn_dbd_conf));
+    return ret;
 }
-
-/* GLOBAL CONFIGURATION */
-static void *create_auth_jwt_config(apr_pool_t * p, server_rec *s){
-
-	auth_jwt_config_rec *conf = (auth_jwt_config_rec*) apr_pcalloc(p, sizeof(*conf));
-
-	conf->signature_algorithm_set = 0;
-	conf->signature_shared_secret_set = 0;
-	conf->signature_public_key_file_set = 0;
-	conf->signature_private_key_file_set = 0;
-	conf->exp_delay_set = 0;
-	conf->nbf_delay_set = 0;
-	conf->leeway_set = 0;
-	conf->iss_set = 0;
-	conf->aud_set = 0;
-	conf->form_username_set=0;
-	conf->form_cnname_set=0;//added newly
-	conf->form_ouname_set=0;//added newly
-	conf->form_oname_set=0;//added newly
-	conf->form_token_set=0;//Token added newly
-	conf->form_password_set=0;
-	conf->attribute_username_set=0;
-	conf->attribute_cnname_set=0;//added newly
-	conf->attribute_ouname_set=0;//added newly
-	conf->attribute_oname_set=0;//added newly
-	conf->attribute_token_set=0;//Token added newly
-	conf->delivery_type_set=0;
-	conf->token_name_set=0;
-	conf->cookie_name_set=0;
-	conf->cookie_attr_set=0;
-	conf->cookie_remove_set=0;
-
-	return (void *)conf;
-}
-
-static void* merge_auth_jwt_dir_config(apr_pool_t *p, void* basev, void* addv){
-	auth_jwt_config_rec *base = (auth_jwt_config_rec *)basev;
-	auth_jwt_config_rec *add = (auth_jwt_config_rec *)addv;
-	auth_jwt_config_rec *new = (auth_jwt_config_rec *) apr_pcalloc(p, sizeof(auth_jwt_config_rec));
-	
-	new->providers = !add->providers ? base->providers : add->providers;
-	new->signature_algorithm = (add->signature_algorithm_set == 0) ? base->signature_algorithm : add->signature_algorithm;
-	new->signature_algorithm_set = base->signature_algorithm_set || add->signature_algorithm_set;
-
-	new->signature_shared_secret = (add->signature_shared_secret_set == 0) ? base->signature_shared_secret : add->signature_shared_secret;
-	new->signature_shared_secret_set = base->signature_shared_secret_set || add->signature_shared_secret_set;
-	new->signature_public_key_file = (add->signature_public_key_file_set == 0) ? base->signature_public_key_file : add->signature_public_key_file;
-	new->signature_public_key_file_set = base->signature_public_key_file_set || add->signature_public_key_file_set;
-	new->signature_private_key_file = (add->signature_private_key_file_set == 0) ? base->signature_private_key_file : add->signature_private_key_file;
-	new->signature_private_key_file_set = base->signature_private_key_file_set || add->signature_private_key_file_set;
-
-	new->exp_delay = (add->exp_delay_set == 0) ? base->exp_delay : add->exp_delay;
-	new->exp_delay_set = base->exp_delay_set || add->exp_delay_set;
-	new->nbf_delay = (add->nbf_delay_set == 0) ? base->nbf_delay : add->nbf_delay;
-	new->nbf_delay_set = base->nbf_delay_set || add->nbf_delay_set;
-	new->leeway = (add->leeway_set == 0) ? base->leeway : add->leeway;
-	new->leeway_set = base->leeway_set || add->leeway_set;
-	new->iss = (add->iss_set == 0) ? base->iss : add->iss;
-	new->iss_set = base->iss_set || add->iss_set;
-	new->aud = (add->aud_set == 0) ? base->aud : add->aud;
-	new->aud_set = base->aud_set || add->aud_set;
-	new->form_username = (add->form_username_set == 0) ? base->form_username : add->form_username;
-	new->form_username_set = base->form_username_set || add->form_username_set;
-
-	//added newly
-	new->form_cnname = (add->form_cnname_set == 0) ? base->form_cnname : add->form_cnname;
-	new->form_cnname_set = base->form_cnname_set || add->form_cnname_set;
-	//added newly
-	new->form_ouname = (add->form_ouname_set == 0) ? base->form_ouname : add->form_ouname;
-	new->form_ouname_set = base->form_ouname_set || add->form_ouname_set;
-	//added newly
-	new->form_oname = (add->form_oname_set == 0) ? base->form_oname : add->form_oname;
-	new->form_oname_set = base->form_oname_set || add->form_oname_set;
-
-	new->form_password = (add->form_password_set == 0) ? base->form_password : add->form_password;
-	new->form_password_set = base->form_password_set || add->form_password_set;
-	
-	//Token added newly
-	new->form_token = (add->form_token_set == 0) ? base->form_token : add->form_token;
-	new->form_token_set = base->form_token_set || add->form_token_set;
-	
-	
-	new->attribute_username = (add->attribute_username_set == 0) ? base->attribute_username : add->attribute_username;
-	new->attribute_username_set = base->attribute_username_set || add->attribute_username_set;
-
-	//added newly
-	new->attribute_cnname = (add->attribute_cnname_set == 0) ? base->attribute_cnname : add->attribute_cnname;
-	new->attribute_cnname_set = base->attribute_cnname_set || add->attribute_cnname_set;
-	//added newly
-	new->attribute_ouname = (add->attribute_ouname_set == 0) ? base->attribute_ouname : add->attribute_ouname;
-	new->attribute_ouname_set = base->attribute_ouname_set || add->attribute_ouname_set;
-	//added newly
-	new->attribute_oname = (add->attribute_oname_set == 0) ? base->attribute_oname : add->attribute_oname;
-	new->attribute_oname_set = base->attribute_oname_set || add->attribute_oname_set;
-	
-	//Token added newly
-	new->attribute_token = (add->attribute_token_set == 0) ? base->attribute_token : add->attribute_token;
-	new->attribute_token_set = base->attribute_token_set || add->attribute_token_set;
-
-	new->delivery_type = (add->delivery_type_set == 0) ? base->delivery_type : add->delivery_type;
-	new->delivery_type_set = base->delivery_type_set || add->delivery_type_set;
-	new->token_name = (add->token_name_set == 0) ? base->token_name : add->token_name;
-	new->token_name_set= base->token_name_set || add->token_name_set;
-	new->cookie_name = (add->cookie_name_set == 0) ? base->cookie_name : add->cookie_name;
-	new->cookie_name_set= base->cookie_name_set || add->cookie_name_set;
-	new->cookie_attr = (add->cookie_attr_set == 0) ? base->cookie_attr : add->cookie_attr;
-	new->cookie_attr_set= base->cookie_attr_set || add->cookie_attr_set;
-	new->cookie_remove = (add->cookie_remove_set == 0) ? base->cookie_remove : add->cookie_remove;
-	new->cookie_remove_set= base->cookie_remove_set || add->cookie_remove_set;
-	return (void*)new;
-}
-
-static void* merge_auth_jwt_config(apr_pool_t *p, void* basev, void* addv){
-	return merge_auth_jwt_dir_config(p, basev, addv);
-}
-
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  DECLARE MODULE IN HTTPD CORE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  */
-
-AP_DECLARE_MODULE(auth_jwt) = {
-  	STANDARD20_MODULE_STUFF,
-  	create_auth_jwt_dir_config,
-  	merge_auth_jwt_dir_config,
-  	create_auth_jwt_config,
-  	merge_auth_jwt_config,
-  	auth_jwt_cmds,
-  	register_hooks
-};
-
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  FILL OUT CONF STRUCTURES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  */
-
-static const char* get_config_value(request_rec *r, jwt_directive directive){
-
-	auth_jwt_config_rec *dconf = (auth_jwt_config_rec *) ap_get_module_config(r->per_dir_config, &auth_jwt_module);
-
-	auth_jwt_config_rec *sconf = (auth_jwt_config_rec *) ap_get_module_config(r->server->module_config, &auth_jwt_module);
-	const char* value;
-
-	switch ((jwt_directive) directive) {
-		case dir_signature_algorithm:
-			if(dconf->signature_algorithm_set && dconf->signature_algorithm){
-				value = dconf->signature_algorithm;
-			}else if(sconf->signature_algorithm){
-				value = sconf->signature_algorithm;
-			}else{
-				return DEFAULT_SIGNATURE_ALGORITHM;
-			}
-			break;
-		case dir_signature_shared_secret:
-			if(dconf->signature_shared_secret_set && dconf->signature_shared_secret){
-				value = dconf->signature_shared_secret;
-			}else if(sconf->signature_shared_secret_set && sconf->signature_shared_secret){
-				value = sconf->signature_shared_secret;
-			}else{
-				return NULL;
-			}
-			break;
-		case dir_signature_public_key_file:
-			if(dconf->signature_public_key_file_set && dconf->signature_public_key_file){
-				value = dconf->signature_public_key_file;
-			}else if(sconf->signature_public_key_file_set && sconf->signature_public_key_file){
-				value = sconf->signature_public_key_file;
-			}else{
-				return NULL;
-			}
-			break;
-		case dir_signature_private_key_file:
-			if(dconf->signature_private_key_file_set && dconf->signature_private_key_file){
-				value = dconf->signature_private_key_file;
-			}else if(sconf->signature_private_key_file_set && sconf->signature_private_key_file){
-				value = sconf->signature_private_key_file;
-			}else{
-				return NULL;
-			}
-			break;
-		case dir_iss:
-			if(dconf->iss_set && dconf->iss){
-				value = (void*)dconf->iss;
-			}else if(sconf->iss_set && sconf->iss){
-				value = (void*)sconf->iss;
-			}else{
-				return NULL;
-			}
-			break;
-		case dir_aud:
-			if(dconf->aud_set && dconf->aud){
-				value = dconf->aud;
-			}else if(sconf->iss_set && sconf->aud){
-				value = sconf->aud;
-			}else{
-				return NULL;
-			}
-			break;
- 		case dir_form_username:
-			if(dconf->form_username_set && dconf->form_username){
-				value = dconf->form_username;
-			}else if(sconf->form_username_set && sconf->form_username){
-				value = sconf->form_username;
-			}else{
-				return DEFAULT_FORM_USERNAME;
-			}
-			break;
-//added newly
- 		case dir_form_cnname:
- 					if(dconf->form_cnname_set && dconf->form_cnname){
- 						value = dconf->form_cnname;
- 					}else if(sconf->form_cnname_set && sconf->form_cnname){
- 						value = sconf->form_cnname;
- 					}else{
- 						return DEFAULT_FORM_CNNAME;
- 					}
- 					break;
-					
-		//added newly
- 		case dir_form_ouname:
- 					if(dconf->form_ouname_set && dconf->form_ouname){
- 						value = dconf->form_ouname;
- 					}else if(sconf->form_ouname_set && sconf->form_ouname){
- 						value = sconf->form_ouname;
- 					}else{
- 						return DEFAULT_FORM_OUNAME;
- 					}
- 					break;
-					
-			//added newly
- 		case dir_form_oname:
- 					if(dconf->form_oname_set && dconf->form_oname){
- 						value = dconf->form_oname;
- 					}else if(sconf->form_oname_set && sconf->form_oname){
- 						value = sconf->form_oname;
- 					}else{
- 						return DEFAULT_FORM_ONAME;
- 					}
- 					break;			
-		//Token added newly
- 		case dir_form_token:
- 					if(dconf->form_token_set && dconf->form_token){
- 						value = dconf->form_token;
- 					}else if(sconf->form_token_set && sconf->form_token){
- 						value = sconf->form_token;
- 					}else{
- 						return DEFAULT_FORM_TOKEN;
- 					}
- 					break;	
-		case dir_form_password:
-			if(dconf->form_password_set && dconf->form_password){
-				value = dconf->form_password;
-			}else if(sconf->form_password_set && sconf->form_password){
-				value = sconf->form_password;
-			}else{
-				return DEFAULT_FORM_PASSWORD;
-			}
-			break;
-
-		case dir_attribute_username:
-			if(dconf->attribute_username_set && dconf->attribute_username){
-				value = dconf->attribute_username;
-			}else if(sconf->attribute_username_set && sconf->attribute_username){
-				value = sconf->attribute_username;
-			}else{
-				return DEFAULT_ATTRIBUTE_USERNAME;
-			}
-			break;
-	//added newly
-		case dir_attribute_cnname:
-					if(dconf->attribute_cnname_set && dconf->attribute_cnname){
-						value = dconf->attribute_cnname;
-					}else if(sconf->attribute_cnname_set && sconf->attribute_cnname){
-						value = sconf->attribute_cnname;
-					}else{
-						return DEFAULT_ATTRIBUTE_CNNAME;
-					}
-					break;
-					
-		//added newly
-		case dir_attribute_ouname:
-					if(dconf->attribute_ouname_set && dconf->attribute_ouname){
-						value = dconf->attribute_ouname;
-					}else if(sconf->attribute_ouname_set && sconf->attribute_ouname){
-						value = sconf->attribute_ouname;
-					}else{
-						return DEFAULT_ATTRIBUTE_OUNAME;
-					}
-					break;
-		//added newly
-		case dir_attribute_oname:
-					if(dconf->attribute_oname_set && dconf->attribute_oname){
-						value = dconf->attribute_oname;
-					}else if(sconf->attribute_oname_set && sconf->attribute_oname){
-						value = sconf->attribute_oname;
-					}else{
-						return DEFAULT_ATTRIBUTE_ONAME;
-					}
-					break;
-		//Token added newly
-		case dir_attribute_token:
-					if(dconf->attribute_token_set && dconf->attribute_token){
-						value = dconf->attribute_token;
-					}else if(sconf->attribute_token_set && sconf->attribute_token){
-						value = sconf->attribute_token;
-					}else{
-						return DEFAULT_ATTRIBUTE_TOKEN;
-					}
-					break;						
-					
-		case dir_delivery_type:
-			if(dconf->delivery_type_set && dconf->delivery_type){
-				value = dconf->delivery_type;
-			}else if(sconf->delivery_type_set && sconf->delivery_type){
-				value = sconf->delivery_type;
-			}else{
-				return DEFAULT_DELIVERY_TYPE;
-			}
-			break;
-		case dir_token_name:
-			if(dconf->token_name_set && dconf->token_name){
-				value = dconf->token_name;
-			}else if(sconf->token_name_set && sconf->token_name){
-				value = sconf->token_name;
-			}else{
-				return DEFAULT_TOKEN_NAME;
-			}
-			break;
-		case dir_cookie_name:
-			if(dconf->cookie_name_set && dconf->cookie_name){
-				value = dconf->cookie_name;
-			}else if(sconf->cookie_name_set && sconf->cookie_name){
-				value = sconf->cookie_name;
-			}else{
-				return DEFAULT_COOKIE_NAME;
-			}
-			break;
-		case dir_cookie_attr:
-			if(dconf->cookie_attr_set && dconf->cookie_attr){
-				value = dconf->cookie_attr;
-			}else if(sconf->cookie_attr_set && sconf->cookie_attr){
-				value = sconf->cookie_attr;
-			}else{
-				return DEFAULT_COOKIE_ATTR;
-			}
-			break;
-		default:
-			return NULL;
-	}
-	return value;
-}
-
-static const int get_config_int_value(request_rec *r, jwt_directive directive){
-    auth_jwt_config_rec *dconf = (auth_jwt_config_rec *) ap_get_module_config(r->per_dir_config, &auth_jwt_module);
-
-	auth_jwt_config_rec *sconf = (auth_jwt_config_rec *) ap_get_module_config(r->server->module_config, &auth_jwt_module);
-
-	int value;
-	switch ((jwt_directive) directive) {
-		case dir_exp_delay:
-			if(dconf->exp_delay_set){
-				value = dconf->exp_delay;
-			}else if(sconf->exp_delay_set){
-				value = sconf->exp_delay;
-			}else{
-				return DEFAULT_EXP_DELAY;
-			}
-			break;
-		case dir_nbf_delay:
-			if(dconf->nbf_delay_set){
-				value = dconf->nbf_delay;
-			}else if(sconf->nbf_delay_set){
-				value = sconf->nbf_delay;
-			}else{
-				return DEFAULT_NBF_DELAY;
-			}
-			break;
-		case dir_leeway:
-			if(dconf->leeway){
-				value = dconf->leeway;
-			}else if(sconf->leeway_set){
-				value = sconf->leeway;
-			}else{
-				return DEFAULT_LEEWAY;
-			}
-			break;
-		case dir_cookie_remove:
-			if(dconf->cookie_remove_set){
-				value = dconf->cookie_remove;
-			}else if(sconf->cookie_remove_set){
-				value = sconf->cookie_remove;
-			}else{
-				return DEFAULT_COOKIE_REMOVE;
-			}
-			break;
-	}
-	return (const int)value;
-}
-
-
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  REGISTER HOOKS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  */
-
-static void register_hooks(apr_pool_t * p){
-	ap_hook_handler(auth_jwt_login_handler, NULL, NULL, APR_HOOK_MIDDLE);
- 	ap_hook_check_authn(auth_jwt_authn_with_token, NULL, NULL, APR_HOOK_MIDDLE, AP_AUTH_INTERNAL_PER_CONF);
-	ap_register_auth_provider(p, AUTHZ_PROVIDER_GROUP, "jwt-claim", AUTHZ_PROVIDER_VERSION, &authz_jwtclaim_provider, AP_AUTH_INTERNAL_PER_CONF);
-	ap_register_auth_provider(p, AUTHZ_PROVIDER_GROUP, "jwt-claim-array", AUTHZ_PROVIDER_VERSION, &authz_jwtclaimarray_provider, AP_AUTH_INTERNAL_PER_CONF);
-}
-
-
-
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  DIRECTIVE HANDLERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  */
-
-static const char *add_authn_provider(cmd_parms * cmd, void *config, const char *arg)
+static void *authn_dbd_merge_conf(apr_pool_t *pool, void *BASE, void *ADD)
 {
-	auth_jwt_config_rec *conf = (auth_jwt_config_rec *) config;
-	authn_provider_list *newp;
-
-	newp = apr_pcalloc(cmd->pool, sizeof(authn_provider_list));
-	newp->provider_name = arg;
-
-	newp->provider = ap_lookup_provider(AUTHN_PROVIDER_GROUP, newp->provider_name, AUTHN_PROVIDER_VERSION);
-
-	if (newp->provider == NULL) {
-		return apr_psprintf(cmd->pool,"Unknown Authn provider: %s", newp->provider_name);
-	}
-
-	if (!newp->provider->check_password) {
-		return apr_psprintf(cmd->pool, "The '%s' Authn provider doesn't support JWT authentication", newp->provider_name);
-	}
-
-	if (!conf->providers) {
-		conf->providers = newp;
-	}
-	else {
-		authn_provider_list *last = conf->providers;
-
-		while (last->next) {
-			last = last->next;
-		}
-		last->next = newp;
-	}
-
-	return NULL;
+    authn_dbd_conf *add = ADD;
+    authn_dbd_conf *base = BASE;
+    authn_dbd_conf *ret = apr_palloc(pool, sizeof(authn_dbd_conf));
+    ret->user = (add->user == NULL) ? base->user : add->user;
+    ret->realm = (add->realm == NULL) ? base->realm : add->realm;
+    ret->auth = (add->auth == NULL) ? base->auth : add->auth;
+    return ret;
 }
-
-static const char *set_jwt_param(cmd_parms * cmd, void* config, const char* value){
-
-	auth_jwt_config_rec *conf;
-	if(!cmd->path){
-		conf = (auth_jwt_config_rec *) ap_get_module_config(cmd->server->module_config, &auth_jwt_module);
-	}else{
-		conf = (auth_jwt_config_rec *) config;
-	}
-
-	switch ((jwt_directive) cmd->info) {
-		case dir_signature_algorithm:
-			conf->signature_algorithm = value;
-			conf->signature_algorithm_set = 1;
-		break;
-		case dir_signature_shared_secret:
-			conf->signature_shared_secret = value;
-			conf->signature_shared_secret_set = 1;
-		break;
-		case dir_signature_public_key_file:
-			conf->signature_public_key_file = value;
-			conf->signature_public_key_file_set = 1;
-		break;
-		case dir_signature_private_key_file:
-			conf->signature_private_key_file = value;
-			conf->signature_private_key_file_set = 1;
-		break;
-		case dir_iss:
-			conf->iss = value;
-			conf->iss_set = 1;
-		break;
-		case dir_aud:
-			conf->aud = value;
-			conf->aud_set = 1;
-		break;
-		case dir_form_username:
-			conf->form_username = value;
-			conf->form_username_set = 1;
-		break;
-//added newly
-		case dir_form_cnname:
-			conf->form_cnname = value;
-			conf->form_cnname_set = 1;
-		break;
-		
-		//added newly
-		case dir_form_ouname:
-			conf->form_ouname = value;
-			conf->form_ouname_set = 1;
-		break;
-		
-		//added newly
-		case dir_form_oname:
-			conf->form_oname = value;
-			conf->form_oname_set = 1;
-		break;
-
-		case dir_form_password:
-			conf->form_password = value;
-			conf->form_password_set = 1;
-		break;
-		
-		//Token added newly
-		case dir_form_token:
-			conf->form_token = value;
-			conf->form_token_set = 1;
-		break;
-		
-		case dir_attribute_username:
-			conf->attribute_username = value;
-			conf->attribute_username_set = 1;
-		break;
-//newly added
-		case dir_attribute_cnname:
-			conf->attribute_cnname = value;
-			conf->attribute_cnname_set = 1;
-		break;
-		
-		//newly added
-		case dir_attribute_ouname:
-			conf->attribute_ouname = value;
-			conf->attribute_ouname_set = 1;
-		break;
-		
-		//newly added
-		case dir_attribute_oname:
-			conf->attribute_oname = value;
-			conf->attribute_oname_set = 1;
-		break;
-		
-		//Token newly added
-		case dir_attribute_token:
-			conf->attribute_token = value;
-			conf->attribute_token_set = 1;
-		break;
-		
-		case dir_delivery_type:
-			if(strcmp(value, JSON_DELIVERY) || strcmp(value, COOKIE_DELIVERY)) {
-				conf->delivery_type = value;
-				conf->delivery_type_set = 1;
-			} else {
-				apr_psprintf(cmd->pool, "Invalid delivery type, must be %s or %s (case sensitive). Fallback to Json.", JSON_DELIVERY, COOKIE_DELIVERY);
-			}
-		break;
-		case dir_token_name:
-			conf->token_name = value;
-			conf->token_name_set = 1;
-		break;
-		case dir_cookie_name:
-			if(ap_cookie_check_string(value) == APR_SUCCESS) {
-				conf->cookie_name = value;
-				conf->cookie_name_set = 1;
-			} else {
-				apr_psprintf(cmd->pool, "Invalid cookie name: \"%s\". Fallback to default: \"%s\".", value, DEFAULT_COOKIE_NAME);
-			}
-		break;
-		case dir_cookie_attr:
-			conf->cookie_attr = value;
-			conf->cookie_attr_set = 1;
-		break;
-	}
-
-	return NULL;
-}
-
-static const char *set_jwt_int_param(cmd_parms * cmd, void* config, const char* value){
-
-	auth_jwt_config_rec *conf;
-	if(!cmd->path){
-		conf = (auth_jwt_config_rec *) ap_get_module_config(cmd->server->module_config, &auth_jwt_module);
-	}else{
-		conf = (auth_jwt_config_rec *) config;
-	}
-
-	const char *digit;
-	for (digit = value; *digit; ++digit) {
-		if (!apr_isdigit(*digit)) {
-			return "Argument must be numeric!";
-		}
-	}
-
-	switch ((long) cmd->info) {
-		case dir_exp_delay:
-			conf->exp_delay = atoi(value);
-			conf->exp_delay_set = 1;
-		break;
-		case dir_nbf_delay:
-			conf->nbf_delay = atoi(value);
-			conf->nbf_delay_set = 1;
-		break;
-		case dir_leeway:
-			conf->leeway = atoi(value);
-			conf->leeway_set = 1;
-		break;
-		case dir_cookie_remove:
-			conf->cookie_remove = atoi(value);
-			conf->cookie_remove_set = 1;
-		break;
-	}
-	return NULL;
-}
-
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  AUTHZ HANDLERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-
-static const char *jwt_parse_config(cmd_parms *cmd, const char *require_line, const void **parsed_require_line){
-	const char *expr_err = NULL;
-	ap_expr_info_t *expr;
-	
-	expr = ap_expr_parse_cmd(cmd, require_line, AP_EXPR_FLAG_STRING_RESULT, &expr_err, NULL);
-	if(expr_err)
-		return apr_pstrcat(cmd->temp_pool, "Cannot parse expression in require line: ", expr_err, NULL);
-	
-	*parsed_require_line = expr;
-	return NULL;
-}
-
-static authz_status jwtclaim_check_authorization(request_rec *r, const char* require_args, const void *parsed_require_args){
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55100)
-					"auth_jwt require jwt-claim: checking authorization...");
-	if(!r->user){
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55101)
-					"auth_jwt authorize: no user found...");
-		return AUTHZ_DENIED_NO_USER;
-	}
-	const char* err = NULL;
-	const ap_expr_info_t *expr = parsed_require_args;
-	const char* require = ap_expr_str_exec(r, expr, &err);
-	if(err){
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55102)
-		"auth_jwt authorize: require jwt-claim: Can't evaluate expression: %s",err);
-		return AUTHZ_DENIED;
-	}
-
-	char *w, *value;
-
-	while(require[0]){
-		w = ap_getword(r->pool, &require, '=');
-		value = ap_getword_conf(r->pool, &require);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55103)
-						"auth_jwt authorize: checking claim %s has value %s", w, value);
-		const char* real_value = token_get_claim((jwt_t*)apr_table_get(r->notes, "jwt"), w);
-		if(real_value != NULL && apr_strnatcasecmp((const char*)real_value, (const char*)value) == 0){
-			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55104)
-						"auth_jwt authorize: require jwt-claim: authorization successful for claim %s=%s", w, value);
-			return AUTHZ_GRANTED;
-		}else{
-			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55105)
-						"auth_jwt authorize: require jwt-claim: authorization failed for claim %s=%s", w, value);
-		}
-	}
-
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55106)
-							"auth_jwt authorize: require jwt-claim: authorization failed");
-	
-	return AUTHZ_DENIED;
-}
-
-static authz_status jwtclaimarray_check_authorization(request_rec *r, const char* require_args, const void *parsed_require_args){
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55107)
-					"auth_jwt require jwt-claim-array: checking authorization...");
-	if(!r->user){
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55108)
-					"auth_jwt authorize: no user found...");
-		return AUTHZ_DENIED_NO_USER;
-	}
-	const char* err = NULL;
-	const ap_expr_info_t *expr = parsed_require_args;
-	const char* require = ap_expr_str_exec(r, expr, &err);
-	if(err){
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55109)
-		"auth_jwt authorize: require jwt-claim: Can't evaluate expression: %s",err);
-		return AUTHZ_DENIED;
-	}
-
-	char *w, *value;
-
-	jwt_t* jwt = (jwt_t*)apr_table_get(r->notes, "jwt");
-	if(jwt == NULL){
-		return HTTP_INTERNAL_SERVER_ERROR;
-	}
-
-	while(require[0]){
-		w = ap_getword(r->pool, &require, '=');
-		value = ap_getword_conf(r->pool, &require);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55110)
-						"auth_jwt authorize: checking claim %s has value %s", w, value);
-		int len;
-		char** array_values = token_get_claim_array_of_string(r, jwt, w, &len);
-		if(array_values != NULL){
-			int i;
-			for(i=0;i<len;i++){
-				if(apr_strnatcasecmp((const char*)array_values[i], (const char*)value) == 0){
-					ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55111)
-						"auth_jwt authorize: require jwt-claim-array: authorization successful for claim %s=%s", w, value);
-					return AUTHZ_GRANTED;
-				}else{
-					ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55112)
-								"auth_jwt authorize: require jwt-claim-array: authorization failed for claim %s=%s", w, value);
-				}
-			}
-		}
-	}
-
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55113)
-							"auth_jwt authorize: require jwt-claim: authorization failed");
-	
-	return AUTHZ_DENIED;
-}
+static const char *authn_dbd_prepare(cmd_parms *cmd, void *cfg, const char *query)
+{
+    static unsigned int label_num = 0;
+    char *label;
+    const char *err = ap_check_cmd_context(cmd, NOT_IN_HTACCESS);
+    if (err)
+        return err;
 
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  AUTHENTICATION HANDLERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  */
-
-
-static int auth_jwt_login_handler(request_rec *r){
-
-	if(!r->handler || strcmp(r->handler, JWT_LOGIN_HANDLER)){
-		return DECLINED;
-	}
-
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
-							"auth_jwt authn: authentication handler is handling authentication");
-
- 	int res;
- 	char* buffer;
-
-
- 	apr_off_t len;
- 	apr_size_t size;
-
- 	int rv;
-
-	if(r->method_number != M_POST){
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55201)
-		"auth_jwt authn: the " JWT_LOGIN_HANDLER " only supports the POST method for %s", r->uri);
-	 	return HTTP_METHOD_NOT_ALLOWED;
- 	}
-
-        const char* content_type = apr_table_get(r->headers_in, "Content-Type");
-        if(!content_type || strcmp(content_type, "application/x-www-form-urlencoded")!=0){
-            	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55202)
-                                                        "auth_jwt authn: content type must be x-www-form-urlencoded");
-		return HTTP_UNSUPPORTED_MEDIA_TYPE;
+    if (authn_dbd_prepare_fn == NULL) {
+        authn_dbd_prepare_fn = APR_RETRIEVE_OPTIONAL_FN(ap_dbd_prepare);
+        if (authn_dbd_prepare_fn == NULL) {
+            return "You must load mod_dbd to enable AuthDBD functions";
         }
+        authn_dbd_acquire_fn = APR_RETRIEVE_OPTIONAL_FN(ap_dbd_acquire);
+    }
+    label = apr_psprintf(cmd->pool, "authn_dbd_%d", ++label_num);
 
- 	apr_array_header_t *pairs = NULL;
- 	res = ap_parse_form_data(r, NULL, &pairs, -1, FORM_SIZE);
- 	if (res != OK) {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55202)
-							"auth_jwt authn: an error occured while parsing form data, aborting authentication");
-		return res;
- 	}
+    authn_dbd_prepare_fn(cmd->server, query, label);
 
- 	//char* fields[] = {(char *)get_config_value(r, dir_form_username), (char *)get_config_value(r, dir_form_password)};
-
- 	//Added newly
- 	char* fields[] = {(char *)get_config_value(r, dir_form_username), 
-					  (char *)get_config_value(r, dir_form_password),
-					  (char *)get_config_value(r, dir_form_cnname),
-					  (char *)get_config_value(r, dir_form_ouname),
-					  (char *)get_config_value(r, dir_form_oname),
-					  (char *)get_config_value(r, dir_form_token)};
-
-	
-//ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
-//"auth_jwt authn: reading fields %s and %s", fields[0], fields[1]);
-
-//Added newly
-ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
-							"auth_jwt authn: reading fields %s,%s,%s,%s and %s", fields[0], fields[1], fields[2],fields[3],fields[4]);
-
- 	char* sent_values[5];
-
-	int i;
-	while (pairs && !apr_is_empty_array(pairs)) {
-		ap_form_pair_t *pair = (ap_form_pair_t *) apr_array_pop(pairs);
-
-			for(i=0;i<5;i++){
-				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
-							"auth_jwt authn: entered loop 1 with values %s", fields[i]);
-			if (fields[i] && !strcmp(pair->name, fields[i]) && &sent_values[i]) {
-				apr_brigade_length(pair->value, 1, &len);
-				size = (apr_size_t) len;
-				buffer = apr_palloc(r->pool, size + 1);
-				apr_brigade_flatten(pair->value, buffer, &size);
-				buffer[len] = 0;
-				sent_values[i] = buffer;
-				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
-							"auth_jwt authn: exiting loop 1 with values %s", fields[i]);
-			}
-		}
- 	}
-//added newly
-	
-	for(i=0;i<5;i++){
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
-							"auth_jwt authn: entered loop 2 with values %s", sent_values[i]);
-		if(!sent_values[i]){
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
-								"auth_jwt authn: the expected parameter %s is missing, aborting authentication", fields[i]);
-			return HTTP_UNAUTHORIZED;
-		}
-	}
-
-	r->user = sent_values[USER_INDEX];
-
-	rv = check_authn(r, sent_values[USER_INDEX], sent_values[PASSWORD_INDEX]);
-	//rv = check_authn(r, sent_values[USER_INDEX], sent_values[PASSWORD_INDEX],sent_values[CO_INDEX]);
-
-	if(rv == OK){
-		char* token;
-		//Added newly
-		//rv = create_token(r, &token, sent_values[USER_INDEX]);
-		rv = create_token(r, &token, sent_values[USER_INDEX],sent_values[CN_INDEX],sent_values[OU_INDEX],sent_values[O_INDEX]);
-			
-
-		if(rv == OK){
-			char* delivery_type = (char *)get_config_value(r, dir_delivery_type);
-
-			if (delivery_type && strcmp(delivery_type, COOKIE_DELIVERY) == 0) {
-				char* cookie_name = (char *)get_config_value(r, dir_cookie_name);
-				char* cookie_attr = (char *)get_config_value(r, dir_cookie_attr);
-
-				ap_cookie_write(r, cookie_name, token, cookie_attr, 0,
-					r->headers_out, NULL);
-			} else {
-				char* token_name = (char *)get_config_value(r, dir_token_name);
-				apr_table_setn(r->err_headers_out, "Content-Type", "application/json");
-				ap_rprintf(r, "{\"%s\":\"%s\"}", token_name, token);
-			}
-
-			free(token);
-		}
-	}
-
-	return rv;
+    /* save the label here for our own use */
+    return ap_set_string_slot(cmd, cfg, label);
 }
-
-
-//static int create_token(request_rec *r, char** token_str, const char* username){
-//Added newly
-static int create_token(request_rec *r, char** token_str, const char* username, const char* cnname, const char* ouname, const char* oname){
-	
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55300)
-							"auth_jwt: creating token...");
-
-	jwt_t *token;
-	int allocate = token_new(&token);
-	if(allocate!=0){
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55301)
-							"auth_jwt create_token: error while creating token: %s", strerror(errno));
-		return HTTP_INTERNAL_SERVER_ERROR;
-	}
-	
-	char* signature_algorithm = (char *)get_config_value(r, dir_signature_algorithm);
-	unsigned char sign_key[MAX_KEY_LEN] = { 0 };
-    unsigned int keylen;
-	get_encode_key(r, signature_algorithm, sign_key, &keylen);
-
-	if(keylen == 0){
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55302)
-							"auth_jwt create_token: key used for signature is empty");
-		token_free(token);
-		return HTTP_INTERNAL_SERVER_ERROR;
-	}
-
-	char* iss = (char *)get_config_value(r, dir_iss);
-	char* aud = (char *)get_config_value(r, dir_aud);
-	int exp_delay = get_config_int_value(r, dir_exp_delay);
-	int nbf_delay = get_config_int_value(r, dir_nbf_delay);
-
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55305)
-							"auth_jwt create_token: using algorithm %s (key length=%d)...", signature_algorithm, keylen);
-
-	if(token_set_alg(r, token, signature_algorithm, sign_key, keylen)!=0){
-		token_free(token);
-		return HTTP_INTERNAL_SERVER_ERROR;
-	}
-
-	time_t now = time(NULL);
-	time_t iat = now;
-	time_t exp = now;
-	time_t nbf = now;
-
-
-	if(exp_delay >= 0){
-		exp += exp_delay;
-		token_add_claim_int(token, "exp", (long)exp);
-	}
-
-	if(nbf_delay >= 0){
-		nbf += nbf_delay;
-		token_add_claim_int(token, "nbf", (long)nbf);
-	}
-
-	token_add_claim_int(token, "iat", (long)iat);
-
-	if(iss){
-		token_add_claim(token, "iss", iss);
-	}
-
-	if(aud){
-		token_add_claim(token, "aud", aud);
-	}
-
-	const char* username_attribute = (const char *)get_config_value(r, dir_attribute_username);
-
-	token_add_claim(token, username_attribute, username);
-
-	//added newly
-
-	const char* cnname_attribute = (const char *)get_config_value(r, dir_attribute_cnname);
-	const char* ouname_attribute = (const char *)get_config_value(r, dir_attribute_ouname);
-	const char* oname_attribute = (const char *)get_config_value(r, dir_attribute_oname);
-
-	token_add_claim(token, cnname_attribute, cnname);
-	token_add_claim(token, ouname_attribute, ouname);
-	token_add_claim(token, oname_attribute, oname);
-
-	*token_str = token_encode_str(token);
-	token_free(token);
-	
-	setenv("SSL_CLIENT_S_DN_CN_Test", cnname, 1);
-	system("export $SSL_CLIENT_S_DN_CN_Test");
-	
-	add_quotes(cnname);
-	add_quotes(ouname);
-	add_quotes(oname);
-	char shellFileCmd[] = "bash ./ExportEnv.sh ";
-	
-	strcat(shellFileCmd,cnname);
-	strcat(shellFileCmd," ");
-	strcat(shellFileCmd,ouname);
-	strcat(shellFileCmd," ");
-	strcat(shellFileCmd,oname);
-	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
-								"auth_jwt authn: shellFileCmd - %s", shellFileCmd);
-			
-	system(shellFileCmd);
-			
-	return OK;
-}
-
-static void add_quotes(char *s) {
-    size_t len = strlen(s);
-    char *tmp = malloc(len+3);
-    tmp[0] = '\'';
-    strcpy(tmp+1, s);
-    tmp[len+1] = '\'';
-    tmp[len+2] = '\0';
-    strcpy(s, tmp);
-    free(tmp);
-}
-static int check_authn(request_rec *r, const char *username, const char *password){
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55220)
-							"auth_jwt: authenticating user");
-	authn_status authn_result;
-	authn_provider_list *current_provider;
-	auth_jwt_config_rec *conf = ap_get_module_config(r->per_dir_config, &auth_jwt_module);
-
-	current_provider = conf->providers;
-	do {
-		const authn_provider *provider;
-
-		if (!current_provider) {
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55221)
-						  "no authn provider configured");
-			authn_result = AUTH_GENERAL_ERROR;
-			break;
-		}
-		else {
-			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55222)
-							"auth_jwt authn: using provider %s", current_provider->provider_name);
-			provider = current_provider->provider;
-			apr_table_setn(r->notes, AUTHN_PROVIDER_NAME_NOTE, current_provider->provider_name);
-		}
-
-		if (!username || !password) {
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55223)
-							"auth_jwt authn: username or password is missing, cannot pursue authentication");
-			authn_result = AUTH_USER_NOT_FOUND;
-			break;
-		}
-
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55224)
-							"auth_jwt authn: checking credentials...");
-		
-		authn_result = provider->check_password(r, username, password);
-
-		apr_table_unset(r->notes, AUTHN_PROVIDER_NAME_NOTE);
-
-		if (authn_result != AUTH_USER_NOT_FOUND) {
-		
-			break;
-		}
-
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55225)
-							"auth_jwt authn: no user has been found, trying the next provider...");
-
-		if (!conf->providers) {
-			break;
-		}
-
-		current_provider = current_provider->next;
-	} while (current_provider);
-
-	if (authn_result != AUTH_GRANTED) {
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55226)
-							"auth_jwt authn: credentials are not correct");
-		int return_code;
-
-		/*if (authn_result != AUTH_DENIED) && !(conf->authoritative))
-			return DECLINED;
-		}*/
-
-		switch (authn_result) {
-		  	case AUTH_DENIED:
-			  	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55227)
-							"user '%s': authentication failure for \"%s\": "
-							"password Mismatch",
-							username, r->uri);
-				return_code = HTTP_UNAUTHORIZED;
-			  	break;
-		  	case AUTH_USER_NOT_FOUND:
-			  	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55228)
-							"user '%s' not found: %s", username, r->uri);
-			  	return_code = HTTP_UNAUTHORIZED;
-			  	break;
-		  	case AUTH_GENERAL_ERROR:
-		  	default:
-				ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55229)
-							"auth_jwt authn: an error occured in the authentication provider, aborting authentication");
-			  	return_code = HTTP_INTERNAL_SERVER_ERROR;
-			  	break;
-		}
-		
-		return return_code;
-	}
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55230)
-							"auth_jwt authn: credentials are correct");
-	return OK;
-}
-
-
-static char* replaceWord(const char* s, const char* oldW, const char* newW)
+static const command_rec authn_dbd_cmds[] =
 {
-	char* result;
-	int i, cnt = 0;
-	int newWlen = strlen(newW);
-	int oldWlen = strlen(oldW);
+    AP_INIT_TAKE1("AuthDBDUserPWQuery", authn_dbd_prepare,
+                  (void *)APR_OFFSETOF(authn_dbd_conf, user), ACCESS_CONF,
+                  "Query used to fetch password for user"),
+    AP_INIT_TAKE1("AuthDBDUserRealmQuery", authn_dbd_prepare,
+                  (void *)APR_OFFSETOF(authn_dbd_conf, realm), ACCESS_CONF,
+                  "Query used to fetch password for user+realm"),
+    AP_INIT_TAKE1("AuthDBDFullAuthQuery", authn_dbd_prepare,
+                  (void *)APR_OFFSETOF(authn_dbd_conf, auth), ACCESS_CONF,
+                  "Query used to check auth for a user+password"),
+    {NULL}
+};
+static authn_status authn_dbd_password(request_rec *r, const char *user,
+                                       const char *password)
+{
+    apr_status_t rv;
+    const char *dbd_password = NULL;
+    apr_dbd_prepared_t *statement;
+    apr_dbd_results_t *res = NULL;
+    apr_dbd_row_t *row = NULL;
+    int ret;
 
-	// Counting the number of times old word
-	// occur in the string
-	for (i = 0; s[i] != '\0'; i++) {
-		if (strstr(&s[i], oldW) == &s[i]) {
-			cnt++;
-
-			// Jumping to index after the old word.
-			i += oldWlen - 1;
-		}
-	}
-
-	// Making new string of enough length
-	result = (char*)malloc(i + cnt * (newWlen - oldWlen) + 1);
-
-	i = 0;
-	while (*s) {
-		// compare the substring with the result
-		if (strstr(s, oldW) == s) {
-			strcpy(&result[i], newW);
-			i += newWlen;
-			s += oldWlen;
-		}
-		else
-			result[i++] = *s++;
-	}
-
-	result[i] = '\0';
-	 return result;
-}
-
-/*
-If we are configured to handle authentication, let's look up headers to find
-whether or not 'Authorization' is set. If so, exepected format is
-Authorization: Bearer json_web_token. Then we check if the token is valid.
-*/
-static int auth_jwt_authn_with_token(request_rec *r){
-	const char *current_auth = NULL;
-	current_auth = ap_auth_type(r);
-	int rv;
-
-	if (!current_auth || strncmp(current_auth, "jwt", 3) != 0) {
-		return DECLINED;
-
-	}
-	
-	
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55400)
-							"auth_jwt: checking authentication with token @@@ ...");
-
-	/* We need an authentication realm. */
-	if (!ap_auth_name(r)) {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55401)
-					"need AuthName: %s", r->uri);
-		return HTTP_INTERNAL_SERVER_ERROR;
-	}
-
-	r->ap_auth_type = (char *) current_auth;
-
-	const char* token_str = 0;
-
-	const char* authSubType = current_auth + 3;
-
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55400)
-							"auth_jwt: authSubType %s", authSubType);
-
-	// 0 wrong value, 2 bearer, 4 cookie, 6 both
-	const int delivery_type = (strlen(authSubType) == 0 || strcmp(authSubType, "-bearer") == 0) ? 2 :
-		strcmp(authSubType, "-cookie") == 0 ? 4 :
-		strcmp(authSubType, "-both") == 0 ? 6 :
-		0;
-
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55400)
-							"auth_jwt: delivery_type %i", delivery_type);
-
-	// todo use struct with some predefined static values
-	char* logCode = APLOGNO(55401);
-	char* logStr = "auth_jwt authn: unexpected error";
-	char* errorStr = NULL;
-
-	if (delivery_type == 0) {
-		return DECLINED;
-	}
-
-	if(delivery_type & 2) {
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"auth_jwt authn: reading Authorization header...");
-		
-		//Reading Header info						
-	/*const apr_array_header_t    *fields;
-    int                         j;
-    apr_table_entry_t           *e = 0;
-   
-
-    fields = apr_table_elts(r->headers_in);
-    e = (apr_table_entry_t *) fields->elts;
-    for(j = 0; j < fields->nelts; j++) {
-        ap_rprintf(r, "<b>%s</b>: %s<br/>", e[j].key, e[j].val);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"apr_table_get Key & Values === <b>%s</b>: %s<br/>", e[j].key, e[j].val);
-    }*/
-		
-		//char* authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");
-	
-		//Token value being passed from the config file
-	/*	int res;
-		apr_off_t len;
-		apr_size_t size;
-		char* buffer;
-		apr_array_header_t *pairs = NULL;
-		res = ap_parse_form_data(r, NULL, &pairs, -1, MAX_KEY_LEN);
-		if (res != OK) {
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55202)
-							"auth_jwt authn: an error occured while parsing form data, aborting Authorization.");
-			return res;
-		}
-		char* field = (char *)get_config_value(r, dir_form_token);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
-							"auth_jwt authn: reading field %s", field);
-
-		char* sent_value;
-		
-		int i;
-		while (pairs && !apr_is_empty_array(pairs)) {
-			ap_form_pair_t *pair = (ap_form_pair_t *) apr_array_pop(pairs);
-
-			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
-								"auth_jwt authn: entered while loop with field %s", field);
-			if (field && !strcmp(pair->name, field) && &sent_value) {
-				apr_brigade_length(pair->value, 1, &len);
-				size = (apr_size_t) len;
-				buffer = apr_palloc(r->pool, size + 1);
-				apr_brigade_flatten(pair->value, buffer, &size);
-				buffer[len] = 0;
-				sent_value = buffer;
-				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
-								"auth_jwt authn: exiting while loop with value %s", sent_value);
-			}
-			
-		}
-		
-		char* authorization_header = sent_value;
-*/	
-		// Reading Authorization header info through query param
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"auth_jwt authn: reading Query String...%s", r->args);
-
-		char oldW[] = "token=Bearer%20";
-		char newW[] = "Bearer ";
-		char* authorization_header = replaceWord(r->args, oldW,newW);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"auth_jwt authn: authorization_header :: %s",authorization_header);
-		
-		if(authorization_header) {
-			if(strlen(authorization_header) > 7 && !strncmp(authorization_header, "Bearer ", 7)){
-				token_str = authorization_header+7;
-			} else {
-				logCode = APLOGNO(55408);
-				logStr = "auth_jwt authn: type of Authorization header is not Bearer";
-				errorStr = "error=\"invalid_request\", error_description=\"Authentication type must be Bearer\"";
-			}
-		} else {
-			logCode = APLOGNO(55404);
-			logStr = "auth_jwt authn: missing Authorization header, responding with WWW-Authenticate header...";
-		}
-	}
-
-	if((delivery_type & 4) && !token_str){
-		int cookie_remove = get_config_int_value(r, dir_cookie_remove);
-		const char* cookie_name = (char *)get_config_value(r, dir_cookie_name);
-		const char* cookieToken;
-
-		ap_cookie_read(r, cookie_name, &token_str, cookie_remove);
-
-		if(!token_str) {
-			logCode = APLOGNO(55409);
-			logStr = "auth_jwt authn: missing authorization cookie";
-		}
-	}
-
-	if(!token_str) {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "%s%s", logCode, logStr);
-		apr_table_setn(r->err_headers_out, "WWW-Authenticate", apr_pstrcat(r->pool, "realm=\"", ap_auth_name(r),"\"", errorStr, NULL));
-		return HTTP_UNAUTHORIZED;
-	}
-
-	unsigned char key[MAX_KEY_LEN] = { 0 };
-	unsigned int keylen;
-
-	get_decode_key(r, key, &keylen);
-
-	if(keylen == 0){
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55403)
-							"auth_jwt authn: key used to check signature is empty");
-		return HTTP_INTERNAL_SERVER_ERROR;
-	}
-
-	jwt_t* token;
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
-						"auth_jwt authn: checking signature and fields correctness...");
-	rv = token_check(r, &token, token_str, key, keylen);
-
-	if(OK == rv){
-		
-	
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55406)
-							"auth_jwt authn: signature is correct");
-		const char* found_alg = token_get_alg(token);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
-							"auth_jwt authn: algorithm found is %s", found_alg);
-		const char* attribute_username = (const char*)get_config_value(r, dir_attribute_username);
-		char* maybe_user = (char *)token_get_claim(token, attribute_username);
-		
-		
-		const char* attribute_ouname = (const char*)get_config_value(r, dir_attribute_ouname);
-		char* maybe_ou = (char *)token_get_claim(token, attribute_ouname);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
-							"auth_jwt authn: ou found in token is %s", maybe_ou);
-		
-		
-		/*
-		 * User claim claim is optional
-		if(maybe_user == NULL){
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55407)
-					"Username was not in token ('%s' attribute is expected)", attribute_username);
-			apr_table_setn(r->err_headers_out, "WWW-Authenticate", apr_pstrcat(r->pool,
-			"Bearer realm=\"", ap_auth_name(r),"\", error=\"invalid_token\", error_description=\"Username was not in token\"",
-			 NULL));
-			return HTTP_UNAUTHORIZED;
-		}
-		*/
-		apr_table_setn(r->notes, "jwt", (const char*)token);
-		if(maybe_user != NULL){
-			r->user = maybe_user;
-		}else{
-			r->user = "anonymous";
-		}
-		return OK;
-	} else {
-		if(token)
-			token_free(token);
-
-		return rv;
-	}
-}
-
-
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  TOKEN OPERATIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  */
-
-static void get_encode_key(request_rec *r, const char* signature_algorithm, unsigned char* key, unsigned int* keylen){
-
-	if(strcmp(signature_algorithm, "HS512")==0 || strcmp(signature_algorithm, "HS384")==0 || strcmp(signature_algorithm, "HS256")==0){
-		char* signature_shared_secret = (char*)get_config_value(r, dir_signature_shared_secret);
-		if(!signature_shared_secret){
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55501)
-					 "You must specify AuthJWTSignatureSharedSecret directive in configuration with algorithm %s", signature_algorithm);
-			return;
-		}
-		apr_pool_t *base64_decode_pool;
-		apr_pool_create(&base64_decode_pool, NULL);
-		size_t decoded_len, buf_len = apr_base64_decode_len(signature_shared_secret);
-		char *decode_buf = apr_pcalloc(base64_decode_pool, buf_len);
-		decoded_len = apr_base64_decode(decode_buf, signature_shared_secret); /* was bin */
-		memcpy(key, decode_buf, buf_len);
-        *keylen = decoded_len;
-	}
-	else if(strcmp(signature_algorithm, "RS512")==0 || strcmp(signature_algorithm, "RS384")==0 || strcmp(signature_algorithm, "RS256")==0 ||
-			strcmp(signature_algorithm, "ES512")==0 || strcmp(signature_algorithm, "ES384")==0 || strcmp(signature_algorithm, "ES256")==0){
-		char* signature_private_key_file = (char*)get_config_value(r, dir_signature_private_key_file);
-		if(!signature_private_key_file){
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55502)
-					 "You must specify AuthJWTSignaturePrivateKeyFile directive in configuration with algorithm %s", signature_algorithm);
-			return;
-		}
-		apr_status_t rv;
-		apr_file_t* key_fd = NULL;
-		rv = apr_file_open(&key_fd, signature_private_key_file, APR_READ, APR_OS_DEFAULT, r->pool);
-		if(rv!=APR_SUCCESS){
-                        char error_buf[50];
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55503)
-					 "Unable to open the file %s: %s", signature_private_key_file, apr_strerror(rv, error_buf, 50));
-			return;
-		}
-		apr_size_t key_len;
-		rv = apr_file_read_full(key_fd, key, MAX_KEY_LEN, &key_len); 
-		if(rv!=APR_SUCCESS && rv!=APR_EOF){
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55504)
-					"Error while reading the file %s", signature_private_key_file);
-			return;
-		}
-		apr_file_close(key_fd);
-        *keylen = (unsigned int)key_len;
-	} else {
-		//unknown algorithm
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55505)
-					"Unknown algorithm %s", signature_algorithm);
-	}
-}
-
-static void get_decode_key(request_rec *r, unsigned char* key, unsigned int* keylen){
-    char* signature_public_key_file = (char*)get_config_value(r, dir_signature_public_key_file);
-    char* signature_shared_secret = (char*)get_config_value(r, dir_signature_shared_secret);
-
-	if(!signature_shared_secret && !signature_public_key_file){
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55507)
-				"You must specify either AuthJWTSignatureSharedSecret directive or AuthJWTSignaturePublicKeyFile directive in configuration for decoding process");
-		return;
+    authn_dbd_conf *conf = ap_get_module_config(r->per_dir_config,
+                                                &authn_dbd_module);
+    ap_dbd_t *dbd = authn_dbd_acquire_fn(r);
+    if (dbd == NULL) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01653)
+                      "auth_jwt authorize: Failed to acquire database connection to look up "
+                      "user '%s'", user);
+        return AUTH_GENERAL_ERROR;
     }
 
-    if(signature_shared_secret && signature_public_key_file){
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55507)
-				"Conflict in configuration: you must specify either AuthJWTSignatureSharedSecret directive or AuthJWTSignaturePublicKeyFile directive but not both in the same block");
-		return;
+    if (conf->user == NULL && conf->auth == NULL) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01654)
+                      "auth_jwt authorize: No AuthDBDUserPWQuery or AuthDBDFullAuthQuery has been specified");
+        return AUTH_GENERAL_ERROR;
     }
 
-    if(signature_shared_secret){
-        apr_pool_t *base64_decode_pool;
-        apr_pool_create(&base64_decode_pool, NULL);
-        size_t decoded_len, buf_len = apr_base64_decode_len((const char*)signature_shared_secret);
-        char *decode_buf = apr_pcalloc(base64_decode_pool, buf_len);
-        decoded_len = apr_base64_decode(decode_buf, signature_shared_secret);
-        memcpy((char*)key, (const char*)decode_buf, decoded_len);
-        *keylen = (unsigned int)decoded_len;
+    statement = apr_hash_get(dbd->prepared,
+        conf->user != NULL ? conf->user : conf->auth,
+        APR_HASH_KEY_STRING);
+    if (statement == NULL) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01655)
+                      "auth_jwt authorize:A prepared statement could not be found for "
+                      "AuthDBDUserPWQuery or AuthDBDFullAuthQuery with the key '%s'",
+                      conf->user);
+        return AUTH_GENERAL_ERROR;
     }
-    else if(signature_public_key_file){
-		apr_status_t rv;
-		apr_file_t* key_fd = NULL;
-		rv = apr_file_open(&key_fd, signature_public_key_file, APR_FOPEN_READ, APR_FPROT_OS_DEFAULT, r->pool);
-		if(rv!=APR_SUCCESS){
-                        char error_buf[50];
-                        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55503)
-                                         "Unable to open the file %s: %s", signature_public_key_file, apr_strerror(rv, error_buf, 50));
-                        return;
-		}
-		apr_size_t key_len;
-		rv = apr_file_read_full(key_fd, key, MAX_KEY_LEN, &key_len); 
-		if(rv!=APR_SUCCESS && rv!=APR_EOF){
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55510)
-					"Error while reading the file %s", signature_public_key_file);
-			return;
-		}
-		*keylen = (unsigned int)key_len;
-		apr_file_close(key_fd);
+    if ((ret = apr_dbd_pvselect(dbd->driver, r->pool, dbd->handle, &res,
+                                statement, 0, user, NULL) != 0)) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01656)
+                      "Query execution error looking up '%s' "
+                      "in database [%s]",
+                      user, apr_dbd_error(dbd->driver, dbd->handle, ret));
+        return AUTH_GENERAL_ERROR;
     }
-}
+    for (rv = apr_dbd_get_row(dbd->driver, r->pool, res, &row, -1);
+         rv != -1;
+         rv = apr_dbd_get_row(dbd->driver, r->pool, res, &row, -1)) {
+        if (rv != 0) {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01657)
+                          "Error retrieving results while looking up '%s' "
+                          "in database", user);
+            return AUTH_GENERAL_ERROR;
+        }
+        if (dbd_password == NULL) {
+#if APU_MAJOR_VERSION > 1 || (APU_MAJOR_VERSION == 1 && APU_MINOR_VERSION >= 3)
+            /* add the rest of the columns to the environment */
+            int i = 1;
+            const char *name;
+            for (name = apr_dbd_get_name(dbd->driver, res, i);
+                 name != NULL;
+                 name = apr_dbd_get_name(dbd->driver, res, i)) {
 
-static int token_new(jwt_t **jwt){
- 	return jwt_new(jwt);
-}
-
-
-static int token_check(request_rec *r, jwt_t **jwt, const char *token, const unsigned char *key, unsigned int keylen){
-
-	int decode_res = token_decode(jwt, token, key, keylen);
-
-	if(decode_res != 0){
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55512)"Decoding process has failed, token is either malformed or signature is invalid");
-		apr_table_setn(r->err_headers_out, "WWW-Authenticate", apr_pstrcat(r->pool,
-		"Bearer realm=\"", ap_auth_name(r),"\", error=\"invalid_token\", error_description=\"Token is malformed or signature is invalid\"",
-		NULL));
-		return HTTP_UNAUTHORIZED;
-	}
-
-	/*
-	Trunk of libjwt does not need this check because the bug is fixed
-	We should not accept token with provided alg none
-	*/
-	if(*jwt && jwt_get_alg(*jwt) == JWT_ALG_NONE){
-		apr_table_setn(r->err_headers_out, "WWW-Authenticate", apr_pstrcat(r->pool,
-		"Bearer realm=\"", ap_auth_name(r),"\", error=\"invalid_token\", error_description=\"Token is malformed\"",
-		NULL));
-		return HTTP_UNAUTHORIZED;
-	}
-
-	const char* iss_config = (char *)get_config_value(r, dir_iss);
-	const char* aud_config = (char *)get_config_value(r, dir_aud);
-	int leeway = get_config_int_value(r, dir_leeway);
-
-	const char* iss_to_check = token_get_claim(*jwt, "iss");
-	if(iss_config && iss_to_check && strcmp(iss_config, iss_to_check)!=0){
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55513)"Token issuer does not match with configured issuer");
-		apr_table_setn(r->err_headers_out, "WWW-Authenticate", apr_pstrcat(r->pool,
-		"Bearer realm=\"", ap_auth_name(r),"\", error=\"invalid_token\", error_description=\"Issuer is not valid\"",
-		NULL));
-		return HTTP_UNAUTHORIZED;
-	}
-
-	const char* aud_to_check = token_get_claim(*jwt, "aud");
-	if(aud_config && aud_to_check && strcmp(aud_config, aud_to_check)!=0){
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55514)"Token audience does not match with configured audience");
-		apr_table_setn(r->err_headers_out, "WWW-Authenticate", apr_pstrcat(r->pool,
-		"Bearer realm=\"", ap_auth_name(r),"\", error=\"invalid_token\", error_description=\"Audience is not valid\"",
-		NULL));
-		return HTTP_UNAUTHORIZED;
-	}
-	
-	
-
-	
-	/* check exp */
-	long exp = token_get_claim_int(*jwt, "exp");
-	if(exp>0){
-		time_t now = time(NULL);
-		if (exp + leeway < now){
-			/* token expired */
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55516)"Token expired");
-			apr_table_setn(r->err_headers_out, "WWW-Authenticate", apr_pstrcat(r->pool,
-			"Bearer realm=\"", ap_auth_name(r),"\", error=\"invalid_token\", error_description=\"Token expired\"",
-			NULL));
-			return HTTP_UNAUTHORIZED;
-		}
-	}
-
-	/* check nbf */
-	long nbf = token_get_claim_int(*jwt, "nbf");
-	if(nbf>0){
-		time_t now = time(NULL);
-		if (nbf - leeway > now){
-			/* token is too recent to be processed */
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55518)"Nbf check failed. Token can't be processed now");
-			apr_table_setn(r->err_headers_out, "WWW-Authenticate", apr_pstrcat(r->pool,
-			"Bearer realm=\"", ap_auth_name(r),"\", error=\"invalid_token\", error_description=\"Token can't be processed now due to nbf field\"",
-			NULL));
-			return HTTP_UNAUTHORIZED;
-		}
-	}
-
-	/*
-	Do not accept other signature algorithms than configured
-	*/
-	const char* sig_config = (char *)get_config_value(r, dir_signature_algorithm);
-	if(*jwt && parse_alg(sig_config) != jwt_get_alg(*jwt)){
-		apr_table_setn(r->err_headers_out, "WWW-Authenticate", apr_pstrcat(r->pool,
-		"Bearer realm=\"", ap_auth_name(r),"\", error=\"invalid_token\", error_description=\"Unsupported Signature Algorithm\"",
-		NULL));
-		return HTTP_UNAUTHORIZED;
-	}
-
-	return 	OK;
-}
-
-static int token_decode(jwt_t **jwt, const char* token, const unsigned char *key, unsigned int keylen){
-	return jwt_decode(jwt, token, key, keylen);
-}
-
-static char *token_encode_str(jwt_t *jwt){
-	return jwt_encode_str(jwt);
-}
-
-static int token_add_claim(jwt_t *jwt, const char *claim, const char *val){
-	return jwt_add_grant(jwt, claim, val);
-}
-
-static int token_add_claim_int(jwt_t *jwt, const char *claim, long val){
-	return jwt_add_grant_int(jwt, claim, val);
-}
-
-static const char* token_get_claim(jwt_t *token, const char* claim){
-	return jwt_get_grant(token, claim);
-}
-
-static long token_get_claim_int(jwt_t *token, const char* claim){
-	return jwt_get_grant_int(token, claim);
-}
-
-
-static char** token_get_claim_array_of_string(request_rec *r, jwt_t *token, const char* claim, int* len){
-	json_t* array = token_get_claim_array(r, token, claim);
-	if(!array){
-		return NULL;
-	}
-
-	int array_len = json_array_size(array);
-	char** values = (char**)apr_pcalloc(r->pool, array_len*sizeof(char*));
-	int i;
-	for(i=0; i<array_len; i++){
-		json_t* data;
-		data = json_array_get(array, i);
-		if(!json_is_string(data)){
-			json_decref(array);
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55519)"Claim '%s' is not an array of", claim);
-			return NULL;
-		}
-		const char* string_value = (const char*)json_string_value(data);
-		values[i] = (char*)apr_pcalloc(r->pool, strlen(string_value)+1*sizeof(char));
-		strcpy(values[i], string_value);
-	}
-	json_decref(array);
-	*len = array_len;
-	return values;
-}
-
-static json_t* token_get_claim_array(request_rec *r, jwt_t *token, const char* claim){
-	json_t* array = token_get_claim_json(r, token, claim);
-	
-	if(!array){
-		return NULL;
-	}
-
-	if(!json_is_array(array)){
-		json_decref(array);
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55520)"Claim '%s' is not a JSON array", claim);
-		return NULL;
-	}
-	return array;
-}
-
-static json_t* token_get_claim_json(request_rec *r, jwt_t *token, const char* claim){
-	char* json_str = jwt_get_grants_json(token, claim);
-	if(json_str == NULL){
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55521)"Missing claim '%s' in token", claim);
-		return NULL;
-	}
-	json_error_t error;
-	json_t* json = json_loads(json_str, 0, &error);
-
-	if(!json){
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55522)"Claim '%s' is not a JSON valid string: %s", claim, error.text);
-		return NULL;
-	}
-
-	return json;
-}
-
-static int token_set_alg(request_rec *r, jwt_t *jwt, const char* signature_algorithm, const unsigned char *key, unsigned int keylen){
-	jwt_alg_t algorithm = parse_alg(signature_algorithm);
-	if(algorithm == JWT_ALG_NONE) {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55304)
-				  "Unknown algorithm %s", signature_algorithm);
-		return 1;
-	}
-	return jwt_set_alg(jwt, algorithm, key, keylen);
-}
-
-static const char* token_get_alg(jwt_t *jwt){
-	jwt_alg_t algorithm = jwt_get_alg(jwt);
-    switch(algorithm){
-        case JWT_ALG_HS256:
-            return "HS256";
-        case JWT_ALG_HS384:
-            return "HS384";
-        case JWT_ALG_HS512:
-            return "HS512";
-        case JWT_ALG_RS256:
-            return "RS256";
-        case JWT_ALG_RS384:
-            return "RS384";
-        case JWT_ALG_RS512:
-            return "RS512";
-        case JWT_ALG_ES256:
-            return "ES256";
-        case JWT_ALG_ES384:
-            return "ES384";
-        case JWT_ALG_ES512:
-            return "ES512";
-        default:
-            return NULL;
+                char *str = apr_pstrcat(r->pool, AUTHN_PREFIX,
+                                        name,
+                                        NULL);
+                int j = sizeof(AUTHN_PREFIX)-1; /* string length of "AUTHENTICATE_", excluding the trailing NIL */
+                while (str[j]) {
+                    if (!apr_isalnum(str[j])) {
+                        str[j] = '_';
+                    }
+                    else {
+                        str[j] = apr_toupper(str[j]);
+                    }
+                    j++;
+                }
+                apr_table_set(r->subprocess_env, str,
+                              apr_dbd_get_entry(dbd->driver, row, i));
+                i++;
+            }
+#endif
+            dbd_password = apr_dbd_get_entry(dbd->driver, row, 0);
+        }
+        /* we can't break out here or row won't get cleaned up */
     }
+
+    if (!dbd_password) {
+        return AUTH_USER_NOT_FOUND;
+    }
+
+    AUTHN_CACHE_STORE(r, user, NULL, dbd_password);
+
+    rv = ap_password_validate(r, user, password, dbd_password);
+
+    if (rv != APR_SUCCESS) {
+        return AUTH_DENIED;
+    }
+
+    if (conf->user != NULL) {
+        rv = apr_password_validate(password, dbd_password);
+        if (rv != APR_SUCCESS) {
+            return AUTH_DENIED;
+        }
+    } // else conf->auth and we get a db_password then we've passed
+
+    return AUTH_GRANTED;
 }
+static authn_status authn_dbd_realm(request_rec *r, const char *user,
+                                    const char *realm, char **rethash)
+{
+    apr_status_t rv;
+    const char *dbd_hash = NULL;
+    apr_dbd_prepared_t *statement;
+    apr_dbd_results_t *res = NULL;
+    apr_dbd_row_t *row = NULL;
+    int ret;
 
-static jwt_alg_t parse_alg(const char* signature_algorithm) {
-	jwt_alg_t algorithm;
-	if(!strcmp(signature_algorithm, "HS512")){
-		algorithm = JWT_ALG_HS512;
-	}else if(!strcmp(signature_algorithm, "HS384")){
-		algorithm = JWT_ALG_HS384;
-	}else if(!strcmp(signature_algorithm, "HS256")){
-		algorithm = JWT_ALG_HS256;
-	}else if(!strcmp(signature_algorithm, "RS512")){
-		algorithm = JWT_ALG_RS512;
-	}else if(!strcmp(signature_algorithm, "RS384")){
-		algorithm = JWT_ALG_RS384;
-	}else if(!strcmp(signature_algorithm, "RS256")){
-		algorithm = JWT_ALG_RS256;
-	}else if(!strcmp(signature_algorithm, "ES512")){
-		algorithm = JWT_ALG_ES512;
-	}else if(!strcmp(signature_algorithm, "ES384")){
-		algorithm = JWT_ALG_ES384;
-	}else if(!strcmp(signature_algorithm, "ES256")){
-		algorithm = JWT_ALG_ES256;
-	}else{
-		algorithm = JWT_ALG_NONE;
-	}	
-	return algorithm;
+    authn_dbd_conf *conf = ap_get_module_config(r->per_dir_config,
+                                                &authn_dbd_module);
+    ap_dbd_t *dbd = authn_dbd_acquire_fn(r);
+    if (dbd == NULL) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01658)
+                      "Failed to acquire database connection to look up "
+                      "user '%s:%s'", user, realm);
+        return AUTH_GENERAL_ERROR;
+    }
+    if (conf->realm == NULL) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01659)
+                      "No AuthDBDUserRealmQuery has been specified");
+        return AUTH_GENERAL_ERROR;
+    }
+    statement = apr_hash_get(dbd->prepared, conf->realm, APR_HASH_KEY_STRING);
+    if (statement == NULL) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01660)
+                      "A prepared statement could not be found for "
+                      "AuthDBDUserRealmQuery with the key '%s'", conf->realm);
+        return AUTH_GENERAL_ERROR;
+    }
+    if ((ret = apr_dbd_pvselect(dbd->driver, r->pool, dbd->handle, &res,
+                                statement, 0, user, realm, NULL) != 0)) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01661)
+                      "Query execution error looking up '%s:%s' "
+                      "in database [%s]",
+                      user, realm,
+                      apr_dbd_error(dbd->driver, dbd->handle, ret));
+        return AUTH_GENERAL_ERROR;
+    }
+    for (rv = apr_dbd_get_row(dbd->driver, r->pool, res, &row, -1);
+         rv != -1;
+         rv = apr_dbd_get_row(dbd->driver, r->pool, res, &row, -1)) {
+        if (rv != 0) {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01662)
+                          "Error retrieving results while looking up '%s:%s' "
+                          "in database", user, realm);
+            return AUTH_GENERAL_ERROR;
+        }
+        if (dbd_hash == NULL) {
+#if APU_MAJOR_VERSION > 1 || (APU_MAJOR_VERSION == 1 && APU_MINOR_VERSION >= 3)
+            /* add the rest of the columns to the environment */
+            int i = 1;
+            const char *name;
+            for (name = apr_dbd_get_name(dbd->driver, res, i);
+                 name != NULL;
+                 name = apr_dbd_get_name(dbd->driver, res, i)) {
+
+                char *str = apr_pstrcat(r->pool, AUTHN_PREFIX,
+                                        name,
+                                        NULL);
+                int j = sizeof(AUTHN_PREFIX)-1; /* string length of "AUTHENTICATE_", excluding the trailing NIL */
+                while (str[j]) {
+                    if (!apr_isalnum(str[j])) {
+                        str[j] = '_';
+                    }
+                    else {
+                        str[j] = apr_toupper(str[j]);
+                    }
+                    j++;
+                }
+                apr_table_set(r->subprocess_env, str,
+                              apr_dbd_get_entry(dbd->driver, row, i));
+                i++;
+            }
+#endif
+            dbd_hash = apr_dbd_get_entry(dbd->driver, row, 0);
+        }
+        /* we can't break out here or row won't get cleaned up */
+    }
+
+    if (!dbd_hash) {
+        return AUTH_USER_NOT_FOUND;
+    }
+    AUTHN_CACHE_STORE(r, user, realm, dbd_hash);
+
+    *rethash = apr_pstrdup(r->pool, dbd_hash);
+    return AUTH_USER_FOUND;
 }
-
-
-static void token_free(jwt_t *token){
-	jwt_free(token);
+static void opt_retr(void)
+{
+    authn_cache_store = APR_RETRIEVE_OPTIONAL_FN(ap_authn_cache_store);
 }
+static void authn_dbd_hooks(apr_pool_t *p)
+{
+    static const authn_provider authn_dbd_provider = {
+        &authn_dbd_password,
+        &authn_dbd_realm
+    };
 
+    ap_register_auth_provider(p, AUTHN_PROVIDER_GROUP, "dbd",
+                              AUTHN_PROVIDER_VERSION,
+                              &authn_dbd_provider, AP_AUTH_INTERNAL_PER_CONF);
+    ap_hook_optional_fn_retrieve(opt_retr, NULL, NULL, APR_HOOK_MIDDLE);
+}
+AP_DECLARE_MODULE(authn_dbd) =
+{
+    STANDARD20_MODULE_STUFF,
+    authn_dbd_cr_conf,
+    authn_dbd_merge_conf,
+    NULL,
+    NULL,
+    authn_dbd_cmds,
+    authn_dbd_hooks
+};
