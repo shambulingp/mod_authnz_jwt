@@ -114,14 +114,14 @@ static authn_status authn_dbd_password(request_rec *r, const char *user,
     ap_dbd_t *dbd = authn_dbd_acquire_fn(r);
     if (dbd == NULL) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01653)
-                      "Failed to acquire database connection to look up "
+                      "auth_jwt authorize: Failed to acquire database connection to look up "
                       "user '%s'", user);
         return AUTH_GENERAL_ERROR;
     }
 
     if (conf->user == NULL && conf->auth == NULL) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01654)
-                      "No AuthDBDUserPWQuery or AuthDBDFullAuthQuery has been specified");
+                      "auth_jwt authorize: No AuthDBDUserPWQuery or AuthDBDFullAuthQuery has been specified");
         return AUTH_GENERAL_ERROR;
     }
 
@@ -130,7 +130,7 @@ static authn_status authn_dbd_password(request_rec *r, const char *user,
         APR_HASH_KEY_STRING);
     if (statement == NULL) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01655)
-                      "A prepared statement could not be found for "
+                      "auth_jwt authorize:A prepared statement could not be found for "
                       "AuthDBDUserPWQuery or AuthDBDFullAuthQuery with the key '%s'",
                       conf->user);
         return AUTH_GENERAL_ERROR;
