@@ -8,6 +8,7 @@ RUN apt-get update && \
 ARG LIBJWT_VERSION=1.12.1
 ARG MOD_AUTHNZ_JWT_VERSION=1.2.0
 
+	
 RUN git clone https://github.com/benmcollins/libjwt.git && \
     cd libjwt && \
     git checkout tags/v$LIBJWT_VERSION && \
@@ -23,11 +24,14 @@ RUN git clone https://github.com/shambulingp/mod_authnz_jwt.git && \
     PKG_CONFIG_PATH=/usr/local ./configure && \
     make && \
     make install
+	
+
     
 FROM httpd:2.4
 
 COPY --from=build /usr/local/lib/libjwt.so /usr/lib/x86_64-linux-gnu/libjwt.so.1
 COPY --from=build /usr/lib/apache2/modules/mod_authnz_jwt.so /usr/local/apache2/modules/mod_authnz_jwt.so
+COPY --from=build /usr/lib/apache2/modules/mod_authn_dbd.so /usr/local/apache2/modules/mod_authn_dbd.so
 
 RUN echo "LoadModule auth_jwt_module modules/mod_authnz_jwt.so" >> /usr/local/apache2/conf/httpd.conf
 

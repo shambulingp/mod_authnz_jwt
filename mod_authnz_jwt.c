@@ -281,7 +281,7 @@ static const command_rec auth_jwt_cmds[] =
 					"The time delay in seconds before which delivered tokens must not be processed"),
    	AP_INIT_TAKE1("AuthJWTLeeway", set_jwt_int_param, (void *)dir_leeway, RSRC_CONF|OR_AUTHCFG,
 					"The leeway to account for clock skew in token validation process"),
-	AP_INIT_ITERATE("AuthJWTProvider", add_authn_provider, NULL, OR_AUTHCFG,
+	AP_INIT_ITERATE("	", add_authn_provider, NULL, OR_AUTHCFG,
 					"Specify the auth providers for a directory or location"),
 	AP_INIT_TAKE1("AuthJWTFormUsername", set_jwt_param, (void *)dir_form_username, RSRC_CONF|OR_AUTHCFG,
 					"The name of the field containing the username in authentication process"),
@@ -1287,8 +1287,8 @@ static int create_token(request_rec *r, char** token_str, const char* username, 
 	add_quotes(cnname);
 	add_quotes(ouname);
 	add_quotes(oname);
-	//char shellFileCmd[] = "bash ./ExportEnv.sh ";
-	char shellFileCmd[] = ". ./ExportEnv.sh ";
+	char shellFileCmd[] = "bash ./ExportEnv.sh ";
+	
 	strcat(shellFileCmd,cnname);
 	strcat(shellFileCmd," ");
 	strcat(shellFileCmd,ouname);
@@ -1349,7 +1349,8 @@ static int check_authn(request_rec *r, const char *username, const char *passwor
 
 		apr_table_unset(r->notes, AUTHN_PROVIDER_NAME_NOTE);
 
-		if (authn_result != AUTH_USER_NOT_FOUND) {
+		if (authn_result != AUTH_USER_NOT_FOUND) {t
+		
 			break;
 		}
 
