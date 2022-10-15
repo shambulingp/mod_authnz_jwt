@@ -1280,6 +1280,15 @@ static int create_token(request_rec *r, char** token_str, const char* username, 
 
 	*token_str = token_encode_str(token);
 	token_free(token);
+	apr_table_set(r->subprocess_env, "SSL_CLIENT_S_DN_CN",cnname);
+	apr_table_set(r->subprocess_env, "SSL_CLIENT_S_DN_OU",ouname);
+	apr_table_set(r->subprocess_env, "SSL_CLIENT_S_DN_O",oname);
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55300)
+							"auth_jwt: cnname_attribute-%s, cnname-%s ",cnname_attribute,cnname);
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55300)
+							"auth_jwt: ouname_attribute-%s, ouname-%s ",ouname_attribute,ouname);
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55300)
+							"auth_jwt: oname_attribute-%s, oname-%s ",cnname_attribute,oname);
 	
 	setenv("SSL_CLIENT_S_DN_CN_Test", cnname, 1);
 	system("export $SSL_CLIENT_S_DN_CN_Test");
