@@ -1619,6 +1619,12 @@ static int auth_jwt_authn_with_token(request_rec *r){
 						"auth_jwt authn: checking signature and fields correctness...");
 	rv = token_check(r, &token, token_str, key, keylen);
 
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
+						"auth_jwt authn: Reading clientCn-%s",r->subprocess_env("SSL_CLIENT_S_DN_CN"));
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
+						"auth_jwt authn: Reading clientOu-%s",r->subprocess_env("SSL_CLIENT_S_DN_OU"));
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
+						"auth_jwt authn: Reading cliento-%s",r->subprocess_env("SSL_CLIENT_S_DN_O"));
 	if(OK == rv){
 		
 	
