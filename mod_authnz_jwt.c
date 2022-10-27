@@ -1090,7 +1090,11 @@ static int auth_jwt_login_handler(request_rec *r){
  	apr_size_t size;
 
  	int rv;
-/*
+	if(r->args != NULL){
+		return OK;
+	}
+		
+
 	if(r->method_number != M_POST){
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55201)
 		"auth_jwt authn: the " JWT_LOGIN_HANDLER " only supports the POST method for %s", r->uri);
@@ -1103,7 +1107,7 @@ static int auth_jwt_login_handler(request_rec *r){
                                                         "auth_jwt authn: content type must be x-www-form-urlencoded");
 		return HTTP_UNSUPPORTED_MEDIA_TYPE;
         }
-*/
+
  	apr_array_header_t *pairs = NULL;
  	res = ap_parse_form_data(r, NULL, &pairs, -1, FORM_SIZE);
  	if (res != OK) {
