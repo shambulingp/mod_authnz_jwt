@@ -1090,13 +1090,13 @@ static int auth_jwt_login_handler(request_rec *r){
  	apr_size_t size;
 
  	int rv;
-
+/*
 	if(r->method_number != M_POST){
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55201)
 		"auth_jwt authn: the " JWT_LOGIN_HANDLER " only supports the POST method for %s", r->uri);
 	 	return HTTP_METHOD_NOT_ALLOWED;
  	}
-
+*/
         const char* content_type = apr_table_get(r->headers_in, "Content-Type");
         if(!content_type || strcmp(content_type, "application/x-www-form-urlencoded")!=0){
             	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55202)
