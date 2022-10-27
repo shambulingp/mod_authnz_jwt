@@ -1096,14 +1096,14 @@ static int auth_jwt_login_handler(request_rec *r){
 		"auth_jwt authn: the " JWT_LOGIN_HANDLER " only supports the POST method for %s", r->uri);
 	 	return HTTP_METHOD_NOT_ALLOWED;
  	}
-*/
+
         const char* content_type = apr_table_get(r->headers_in, "Content-Type");
         if(!content_type || strcmp(content_type, "application/x-www-form-urlencoded")!=0){
             	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55202)
                                                         "auth_jwt authn: content type must be x-www-form-urlencoded");
 		return HTTP_UNSUPPORTED_MEDIA_TYPE;
         }
-
+*/
  	apr_array_header_t *pairs = NULL;
  	res = ap_parse_form_data(r, NULL, &pairs, -1, FORM_SIZE);
  	if (res != OK) {
