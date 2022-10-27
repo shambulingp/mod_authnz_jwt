@@ -1090,9 +1090,10 @@ static int auth_jwt_login_handler(request_rec *r){
  	apr_size_t size;
 
  	int rv;
-	if(r->args != NULL){
+	char *url_need_to_skip = "/gettoken";
+	if(strstr(r->uri, url_need_to_skip) == NULL){
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
-							"auth_jwt authn: query param: %s", r->args);
+							"auth_jwt authn: url: %s", r->uri);
 
 		return OK;
 	}
