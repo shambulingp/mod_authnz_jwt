@@ -1080,7 +1080,7 @@ static int auth_jwt_login_handler(request_rec *r){
 	}
 
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
-							"auth_jwt authn: authentication handler is handling authentication");
+							"auth_jwt authn: authentication handler is handling authentication url:%s, query param: %s", r->uri,r->args);
 
  	int res;
  	char* buffer;
@@ -1091,6 +1091,9 @@ static int auth_jwt_login_handler(request_rec *r){
 
  	int rv;
 	if(r->args != NULL){
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
+							"auth_jwt authn: query param: %s", r->args);
+
 		return OK;
 	}
 		
