@@ -234,7 +234,6 @@ static int create_token(request_rec *r, char** token_str, const char* username, 
 
 static int auth_jwt_authn_with_token(request_rec *r);
 static char* replaceWord(const char* s, const char* oldW, const char* newW);
-static void add_quotes(char *s);
 
 static void get_encode_key(request_rec* r, const char* algorithm, unsigned char* key, unsigned int* keylen);
 static void get_decode_key(request_rec* r, unsigned char* key, unsigned int* keylen);
@@ -1290,38 +1289,10 @@ static int create_token(request_rec *r, char** token_str, const char* username, 
 							"auth_jwt: ouname_attribute-%s, ouname-%s ",ouname_attribute,ouname);
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55300)
 							"auth_jwt: oname_attribute-%s, oname-%s ",cnname_attribute,oname);
-	
-	setenv("SSL_CLIENT_S_DN_CN_Test", cnname, 1);
-	system("export $SSL_CLIENT_S_DN_CN_Test");
-	
-	add_quotes(cnname);
-	add_quotes(ouname);
-	add_quotes(oname);
-	char shellFileCmd[] = "bash ./ExportEnv.sh ";
-	
-	strcat(shellFileCmd,cnname);
-	strcat(shellFileCmd," ");
-	strcat(shellFileCmd,ouname);
-	strcat(shellFileCmd," ");
-	strcat(shellFileCmd,oname);
-	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
-								"auth_jwt authn: shellFileCmd - %s", shellFileCmd);
-			
-	system(shellFileCmd);
 			
 	return OK;
 }
 
-static void add_quotes(char *s) {
-    size_t len = strlen(s);
-    char *tmp = malloc(len+3);
-    tmp[0] = '\'';
-    strcpy(tmp+1, s);
-    tmp[len+1] = '\'';
-    tmp[len+2] = '\0';
-    strcpy(s, tmp);
-    free(tmp);
-}
 static int check_authn(request_rec *r, const char *username, const char *password){
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55220)
 							"auth_jwt: authenticating user");
