@@ -1543,25 +1543,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 								"auth_jwt authn: authorization_header :: %s",authorization_header);
 								
 				
-		const char* attr_cnname = (const char*)get_config_value(r, dir_attribute_cnname);
-		char* cn = (char *)token_get_claim(token, attr_cnname);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
-							"auth_jwt authn: cn - %s", cn);
-							
-		const char* attr_ouname = (const char*)get_config_value(r, dir_attribute_ouname);
-		char* ou = (char *)token_get_claim(token, attr_ouname);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
-							"auth_jwt authn: ou - %s", ou);
-							
-		const char* attr_oname = (const char*)get_config_value(r, dir_attribute_oname);
-		char* o = (char *)token_get_claim(token, attr_oname);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
-							"auth_jwt authn: o - %s", o);
-							
-		apr_table_set(r->subprocess_env, "SSL_CLIENT_S_DN_CN",cnname);
-	    apr_table_set(r->subprocess_env, "SSL_CLIENT_S_DN_OU",ou);
-	    apr_table_set(r->subprocess_env, "SSL_CLIENT_S_DN_O",o);
-							
+				
 		
 		if(authorization_header) {
 			if(strlen(authorization_header) > 7 && !strncmp(authorization_header, "Bearer ", 7)){
@@ -1611,6 +1593,25 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
 						"auth_jwt authn: checking signature and fields correctness...");
 	rv = token_check(r, &token, token_str, key, keylen);
+	
+	const char* attr_cnname = (const char*)get_config_value(r, dir_attribute_cnname);
+	char* cn = (char *)token_get_claim(token, attr_cnname);
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
+							"auth_jwt authn: cn - %s", cn);
+							
+	const char* attr_ouname = (const char*)get_config_value(r, dir_attribute_ouname);
+	char* ou = (char *)token_get_claim(token, attr_ouname);
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
+							"auth_jwt authn: ou - %s", ou);
+							
+	const char* attr_oname = (const char*)get_config_value(r, dir_attribute_oname);
+	char* o = (char *)token_get_claim(token, attr_oname);
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
+							"auth_jwt authn: o - %s", o);
+							
+	apr_table_set(r->subprocess_env, "SSL_CLIENT_S_DN_CN",cn);
+	apr_table_set(r->subprocess_env, "SSL_CLIENT_S_DN_OU",ou);
+	apr_table_set(r->subprocess_env, "SSL_CLIENT_S_DN_O",o);
 
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
 						"auth_jwt authn: Reading clientCn-%s",apr_table_get(r->subprocess_env, "SSL_CLIENT_S_DN_CN"));
