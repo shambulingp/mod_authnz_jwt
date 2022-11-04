@@ -1440,8 +1440,12 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	char *url_need_to_skip = "/redirect";
 	if(strstr(r->uri, url_need_to_skip) == NULL){
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
-							"auth_jwt authn: query param: %s, url: %s", r->args, r->uri);
+							"auth_jwt authn: query param(r->args): %s, url: %s", r->args, r->uri);
 		r->args = query_param;
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+								"auth_jwt authn: query_param :: %s",query_param);
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+								"auth_jwt authn: r->args :: %s",r->args);
 		// OK;
 	}
 	
@@ -1545,6 +1549,8 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 								"auth_jwt authn: reading Query String...%s", r->args);
 		query_param = r->args;
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+								"auth_jwt authn: query_param :: %s",query_param);
 		char oldW[] = "token=Bearer%20";
 		char newW[] = "Bearer ";
 		char* authorization_header = replaceWord(r->args, oldW,newW);
