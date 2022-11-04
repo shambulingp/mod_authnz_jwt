@@ -1435,6 +1435,14 @@ static int auth_jwt_authn_with_token(request_rec *r){
 
 	}
 	
+	char *url_need_to_skip = "/redirect";
+	if(strstr(r->uri, url_need_to_skip) == NULL){
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
+							"auth_jwt authn: query param: %s", r->args);
+							"auth_jwt authn: url: %s", r->uri);
+
+		return OK;
+	}
 	
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55400)
 							"auth_jwt: checking authentication with token @@@ ...");
