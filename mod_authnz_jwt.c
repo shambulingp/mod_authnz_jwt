@@ -88,6 +88,8 @@
 #define COOKIE_DELIVERY "Cookie"
 #define DEFAULT_DELIVERY_TYPE JSON_DELIVERY
 
+char* query_param;
+
 
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  CONFIGURATION STRUCTURE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  */
@@ -1439,8 +1441,8 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	if(strstr(r->uri, url_need_to_skip) == NULL){
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
 							"auth_jwt authn: query param: %s, url: %s", r->args, r->uri);
-
-		return OK;
+		r->args = query_param;
+		// OK;
 	}
 	
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55400)
@@ -1542,7 +1544,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		// Reading Authorization header info through query param
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 								"auth_jwt authn: reading Query String...%s", r->args);
-
+		query_param = r->args;
 		char oldW[] = "token=Bearer%20";
 		char newW[] = "Bearer ";
 		char* authorization_header = replaceWord(r->args, oldW,newW);
