@@ -1437,23 +1437,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 
 	}
 	
-	char *url_need_to_skip = "/redirect";
-	if(strstr(r->uri, url_need_to_skip) == NULL){
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
-							"auth_jwt authn: query param(r->args): %s, url: %s", r->args, r->uri);
-		r->args = query_param;
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"auth_jwt authn: query_param :: %s",query_param);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"auth_jwt authn: r->args :: %s",r->args);
-								
-		const char* attribute_username = (const char*)get_config_value(r, dir_attribute_username);
-		r->user = (char *)token_get_claim(token, attribute_username);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"auth_jwt authn:r->user :: %s",r->user);
-		return OK;
-	}
-	
+
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55400)
 							"auth_jwt: checking authentication with token @@@ ...");
 
@@ -1674,6 +1658,17 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		}else{
 			r->user = "anonymous";
 		}
+		
+		char *url_need_to_skip = "/redirect";
+		if(strstr(r->uri, url_need_to_skip) == NULL){
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
+							"auth_jwt authn: query param(r->args): %s, url: %s", r->args, r->uri);
+			r->args = NULL;
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+								"auth_jwt authn: r->args :: %s",r->args);
+
+		}
+	
 		return OK;
 	} else {
 		if(token)
