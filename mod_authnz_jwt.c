@@ -1658,7 +1658,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		}else{
 			r->user = "anonymous";
 		}
-		
+	/*	
 		char *url_need_to_skip = "/redirect";
 		if(strstr(r->uri, url_need_to_skip) == NULL){
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
@@ -1668,7 +1668,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 								"auth_jwt authn: r->args :: %s",r->args);
 
 		}
-	
+	*/
 		return OK;
 	} else {
 		if(token)
