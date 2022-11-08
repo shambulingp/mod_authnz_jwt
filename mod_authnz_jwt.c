@@ -1551,9 +1551,19 @@ static int auth_jwt_authn_with_token(request_rec *r){
 									
 					
 			apr_table_set( r->headers_in, "Authorization",authorization_header);
+			char*  authorization_from_header = (char*)apr_table_get( r->headers_in, "Authorization");	
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: authorization_from_header :: %s",authorization_from_header);
+			apr_table_set(r->subprocess_env, "Authorization_sub_env",authorization_header);
 		}
 
-		authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");		
+		authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");	
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: reading Query String(2)...%s", r->args);	
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: authorization_header(2) :: %s",authorization_header);	
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: Authorization_sub_env(2) :: %s",apr_table_get(r->subprocess_env, "Authorization_sub_env"));									
 		
 		if(authorization_header) {
 			if(strlen(authorization_header) > 7 && !strncmp(authorization_header, "Bearer ", 7)){
