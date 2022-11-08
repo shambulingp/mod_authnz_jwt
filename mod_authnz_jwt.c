@@ -1479,6 +1479,8 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: token_from_header :: %s",token_from_header);
 									
+									
+									
 	if(delivery_type & 2) {
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 								"auth_jwt authn: reading Authorization header...");
@@ -1559,8 +1561,13 @@ static int auth_jwt_authn_with_token(request_rec *r){
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: authorization_from_header :: %s",authorization_from_header);
 			apr_table_set(r->subprocess_env, "Authorization_sub_env",authorization_header);
+			
+			apr_table_add(r->headers_in, "Cookie", authorization_header);
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: Cookie :: %s",apr_table_get( r->headers_in, "Cookie"));
 		}
-
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: Cookie(2) :: %s",apr_table_get( r->headers_in, "Cookie"));
 		authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");	
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: reading Query String(2)...%s", r->args);	
