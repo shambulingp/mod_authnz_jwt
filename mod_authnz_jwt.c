@@ -1475,6 +1475,10 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		return DECLINED;
 	}
 
+	char*  token_from_header = (char*)apr_table_get( r->headers_in, "TOKEN");	
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: token_from_header :: %s",token_from_header);
+									
 	if(delivery_type & 2) {
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 								"auth_jwt authn: reading Authorization header...");
