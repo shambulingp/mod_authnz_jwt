@@ -1535,19 +1535,25 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		char* authorization_header = sent_value;
 */	
 		// Reading Authorization header info through query param
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"auth_jwt authn: reading Query String...%s", r->args);
-		query_param = r->args;
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"auth_jwt authn: query_param :: %s",query_param);
-		char oldW[] = "token=Bearer%20";
-		char newW[] = "Bearer ";
-		char* authorization_header = replaceWord(r->args, oldW,newW);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"auth_jwt authn: authorization_header :: %s",authorization_header);
-								
-				
-				
+		char* authorization_header = NULL;
+		char *url_should_not_skip = "/redirect";
+		if(strstr(r->uri, url_should_not_skip) != NULL){
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: reading Query String...%s", r->args);
+			query_param = r->args;
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: query_param :: %s",query_param);
+			char oldW[] = "token=Bearer%20";
+			char newW[] = "Bearer ";
+			char* authorization_header = replaceWord(r->args, oldW,newW);
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: authorization_header :: %s",authorization_header);
+									
+					
+			apr_table_set( r->headers_in, "Authorization",authorization_header);
+		}
+
+		authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");		
 		
 		if(authorization_header) {
 			if(strlen(authorization_header) > 7 && !strncmp(authorization_header, "Bearer ", 7)){
