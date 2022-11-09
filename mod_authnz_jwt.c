@@ -1478,13 +1478,15 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	char*  token_from_header = (char*)apr_table_get( r->headers_in, "TOKEN");	
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: token_from_header :: %s",token_from_header);
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: getevn(MY_ENV) :: %s",getenv("MY_ENV"));
 									
 									
 									
 	if(delivery_type & 2) {
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 								"auth_jwt authn: reading Authorization header...");
-		
+	/*	
 		//Reading Header info						
 	const apr_array_header_t    *fields;
     int                         j;
@@ -1497,7 +1499,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
         ap_rprintf(r, "<b>%s</b>: %s<br/>", e[j].key, e[j].val);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 								"apr_table_get Key & Values === <b>%s</b>: %s<br/>", e[j].key, e[j].val);
-    }
+    }*/
 		
 		//char* authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");
 	
@@ -1543,7 +1545,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		// Reading Authorization header info through query param
 		char* authorization_header = NULL;
 		char *url_should_not_skip = "/redirect";
-		if(strstr(r->uri, url_should_not_skip) != NULL){
+		//if(strstr(r->uri, url_should_not_skip) != NULL){
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: reading Query String...%s", r->args);
 			query_param = r->args;
@@ -1565,10 +1567,10 @@ static int auth_jwt_authn_with_token(request_rec *r){
 			apr_table_add(r->headers_in, "Cookie", authorization_header);
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: Cookie :: %s",apr_table_get( r->headers_in, "Cookie"));
-		}
+		//}
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: Cookie(2) :: %s",apr_table_get( r->headers_in, "Cookie"));
-		authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");	
+		//authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");	
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: reading Query String(2)...%s", r->args);	
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
