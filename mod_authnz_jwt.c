@@ -1485,7 +1485,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 									"auth_jwt authn: token_from_header :: %s",token_from_header);
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: getevn(MY_ENV) :: %s",getenv("MY_ENV"));
-	const char* referer = apr_table_get(request->headers_in, "Referer");
+	const char* referer = apr_table_get(r->headers_in, "Referer");
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: Referer :: %s",referer);
 									
