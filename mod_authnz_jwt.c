@@ -1543,7 +1543,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		char* authorization_header = sent_value;
 */	
 		// Reading Authorization header info through query param
-		char* authorization_header = NULL;
+		//char* authorization_header = NULL;
 		char *url_should_not_skip = "/redirect";
 		//if(strstr(r->uri, url_should_not_skip) != NULL){
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
