@@ -1486,7 +1486,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 								"auth_jwt authn: reading Authorization header...");
 		
 		//Reading Header info						
-	/*const apr_array_header_t    *fields;
+	const apr_array_header_t    *fields;
     int                         j;
     apr_table_entry_t           *e = 0;
    
@@ -1497,7 +1497,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
         ap_rprintf(r, "<b>%s</b>: %s<br/>", e[j].key, e[j].val);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 								"apr_table_get Key & Values === <b>%s</b>: %s<br/>", e[j].key, e[j].val);
-    }*/
+    }
 		
 		//char* authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");
 	
