@@ -1571,14 +1571,14 @@ static int auth_jwt_authn_with_token(request_rec *r){
 			char newW[] = "Bearer ";
 			char* authorization_header = replaceWord(r->args, oldW,newW);
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: authorization_header in /Redirect" :: %s",authorization_header);
+									"auth_jwt authn: authorization_header in /Redirect :: %s",authorization_header);
 		}
 		else{
 			char oldW[] = "token=Bearer%20";
 			char newW[] = "Bearer ";
 			authorization_header = replaceWord(getenv("AUTHENTICATION_TOKEN"), oldW,newW);
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: authorization_header in otherthan /Redirect" :: %s",authorization_header);
+									"auth_jwt authn: authorization_header in otherthan /Redirect :: %s",authorization_header);
 		}
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: reading Query String(2)...%s", r->args);	
