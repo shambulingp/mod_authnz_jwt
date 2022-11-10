@@ -1569,7 +1569,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 									"auth_jwt authn: query_param :: %s",query_param);
 			char oldW[] = "token=Bearer%20";
 			char newW[] = "Bearer ";
-			char* authorization_header = replaceWord(r->args, oldW,newW);
+			authorization_header = replaceWord(r->args, oldW,newW);
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: authorization_header in /Redirect :: %s",authorization_header);
 		}
