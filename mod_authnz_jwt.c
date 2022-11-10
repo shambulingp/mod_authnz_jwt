@@ -1477,7 +1477,9 @@ static int auth_jwt_authn_with_token(request_rec *r){
 
 	char *url_should_not_skip = "/redirect";
 	if(strstr(r->uri, url_should_not_skip) != NULL){
-		setenv("MY_ENV", "ENV_VALUE", 1);
+		setenv("AUTHENTICATION_TOKEN", r->args, 1);
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: AUTHENTICATION_TOKEN :: %s",getenv("AUTHENTICATION_TOKEN"));
 	}
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
 							"auth_jwt authn:  url :: %s", r->uri);
@@ -1489,6 +1491,8 @@ static int auth_jwt_authn_with_token(request_rec *r){
 									"auth_jwt authn: token_from_header :: %s",token_from_header);
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: getevn(MY_ENV) :: %s",getenv("MY_ENV"));
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: AUTHENTICATION_TOKEN :: %s",getenv("AUTHENTICATION_TOKEN"));
 	const char* referer = apr_table_get(r->headers_in, "Referer");
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: Referer :: %s",referer);
@@ -1555,9 +1559,9 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		char* authorization_header = sent_value;
 */	
 		// Reading Authorization header info through query param
-		//char* authorization_header = NULL;
+		char* authorization_header = getenv("AUTHENTICATION_TOKEN");
 		char *url_should_not_skip = "/redirect";
-		//if(strstr(r->uri, url_should_not_skip) != NULL){
+		if(strstr(r->uri, url_should_not_skip) != NULL){
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: reading Query String...%s", r->args);
 			query_param = r->args;
@@ -1567,29 +1571,20 @@ static int auth_jwt_authn_with_token(request_rec *r){
 			char newW[] = "Bearer ";
 			char* authorization_header = replaceWord(r->args, oldW,newW);
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: authorization_header :: %s",authorization_header);
-									
-	/*				
-			apr_table_add( r->headers_in, "Authorization",authorization_header);
-			char*  authorization_from_header = (char*)apr_table_get( r->headers_in, "Authorization");	
+									"auth_jwt authn: authorization_header in "/Redirect" :: %s",authorization_header);
+		}
+		else{
+			char oldW[] = "token=Bearer%20";
+			char newW[] = "Bearer ";
+			authorization_header = replaceWord(getenv("AUTHENTICATION_TOKEN"), oldW,newW);
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: authorization_from_header :: %s",authorization_from_header);
-			apr_table_set(r->subprocess_env, "Authorization_sub_env",authorization_header);
-			
-			apr_table_add(r->headers_in, "Cookie", authorization_header);
-			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: Cookie :: %s",apr_table_get( r->headers_in, "Cookie"));
-		//}
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: Cookie(2) :: %s",apr_table_get( r->headers_in, "Cookie"));
-		//authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");	
+									"auth_jwt authn: authorization_header in otherthan "/Redirect" :: %s",authorization_header);
+		}
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: reading Query String(2)...%s", r->args);	
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: authorization_header(2) :: %s",authorization_header);	
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: Authorization_sub_env(2) :: %s",apr_table_get(r->subprocess_env, "Authorization_sub_env"));									
-	*/	
+		
 		if(authorization_header) {
 			if(strlen(authorization_header) > 7 && !strncmp(authorization_header, "Bearer ", 7)){
 				token_str = authorization_header+7;
