@@ -1551,7 +1551,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		char* authorization_header = sent_value;
 */	
 		// Reading Authorization header info through query param
-		char* authorization_header = null;
+		char* authorization_header = NULL;
 		char *url_should_not_skip = "/redirect";
 		char oldW[] = "token=Bearer%20";
 		char newW[] = "Bearer ";
