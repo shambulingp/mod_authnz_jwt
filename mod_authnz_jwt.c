@@ -1475,6 +1475,10 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		return DECLINED;
 	}
 
+	char *url_should_not_skip = "/redirect";
+	if(strstr(r->uri, url_should_not_skip) != NULL){
+		setenv("MY_ENV", "ENV_VALUE", 1);
+	}
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
 							"auth_jwt authn:  url :: %s", r->uri);
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
