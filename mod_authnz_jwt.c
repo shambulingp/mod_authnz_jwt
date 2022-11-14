@@ -1166,10 +1166,12 @@ ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 	}
 
 	r->user = sent_values[USER_INDEX];
-
+	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
+								"auth_jwt authn: r->user - %s ", r->user);
+	setenv("USER_SPEC", r->user, 1);
 	rv = check_authn(r, sent_values[USER_INDEX], sent_values[PASSWORD_INDEX]);
 	//rv = check_authn(r, sent_values[USER_INDEX], sent_values[PASSWORD_INDEX],sent_values[CO_INDEX]);
-
+	delay(30000);
 	if(rv == OK){
 		char* token;
 		//Added newly
@@ -1195,6 +1197,8 @@ ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 			free(token);
 		}
 	}
+	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
+								"auth_jwt authn: r->user - %s && getenv(USER_SPEC)", r->user,getenv("USER_SPEC"));
 
 	return rv;
 }
