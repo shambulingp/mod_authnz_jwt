@@ -49,7 +49,7 @@
 #include "http_request.h"
 #include "ap_provider.h"
 #include "util_cookies.h"
-
+#include "windows.h"
 #include "mod_auth.h"
 
 #define JWT_LOGIN_HANDLER "jwt-login-handler"
@@ -1171,7 +1171,8 @@ ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 	setenv("USER_SPEC", r->user, 1);
 	rv = check_authn(r, sent_values[USER_INDEX], sent_values[PASSWORD_INDEX]);
 	//rv = check_authn(r, sent_values[USER_INDEX], sent_values[PASSWORD_INDEX],sent_values[CO_INDEX]);
-	delay(30000);
+	//delay(30000);
+	Sleep(30000);
 	if(rv == OK){
 		char* token;
 		//Added newly
