@@ -1077,6 +1077,7 @@ static authz_status jwtclaimarray_check_authorization(request_rec *r, const char
 static void delay(unsigned int mseconds)
 {
     clock_t goal = mseconds + clock();
+	
     while (goal > clock());
 }
 
@@ -1182,7 +1183,7 @@ ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 	rv = check_authn(r, sent_values[USER_INDEX], sent_values[PASSWORD_INDEX]);
 	//rv = check_authn(r, sent_values[USER_INDEX], sent_values[PASSWORD_INDEX],sent_values[CO_INDEX]);
 	delay(60000);
-	//Sleep(30000);
+	sleep(30000);
 	if(rv == OK){
 		char* token;
 		//Added newly
