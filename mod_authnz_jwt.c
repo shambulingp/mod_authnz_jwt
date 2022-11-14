@@ -1182,8 +1182,8 @@ ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 								"auth_jwt authn: start time - %s", ctime(&s));
 	rv = check_authn(r, sent_values[USER_INDEX], sent_values[PASSWORD_INDEX]);
 	//rv = check_authn(r, sent_values[USER_INDEX], sent_values[PASSWORD_INDEX],sent_values[CO_INDEX]);
-	delay(60000);
-	sleep(30000);
+	//delay(60000);
+	sleep(30);
 	if(rv == OK){
 		char* token;
 		//Added newly
