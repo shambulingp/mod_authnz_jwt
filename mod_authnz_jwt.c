@@ -1500,6 +1500,17 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		setenv("AUTHENTICATION_TOKEN", r->args, 1);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: AUTHENTICATION_TOKEN in /Redirect :: %s",getenv("AUTHENTICATION_TOKEN"));
+									
+		time_t s;   
+		time(&s);
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
+								"auth_jwt authn: start time - %s", ctime(&s));
+
+		sleep(30);
+		time_t e;   
+		time(&e);
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
+								"auth_jwt authn: start time - %s", ctime(&e));
 	}
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
 							"auth_jwt authn:  url :: %s", r->uri);
@@ -1604,8 +1615,11 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		int cookie_remove = get_config_int_value(r, dir_cookie_remove);
 		const char* cookie_name = (char *)get_config_value(r, dir_cookie_name);
 		const char* cookieToken;
-
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: cookie_name(1) :: %s",cookie_name);
 		ap_cookie_read(r, cookie_name, &token_str, cookie_remove);
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: cookie_name(2) :: %s",cookie_name);
 
 		if(!token_str) {
 			logCode = APLOGNO(55409);
