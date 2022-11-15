@@ -1176,14 +1176,14 @@ ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
 								"auth_jwt authn: r->user - %s && CN - %s ", r->user,sent_values[CN_INDEX]);
 	setenv("USER_SPEC", sent_values[CN_INDEX], 1);
-	time_t s;   
+	/*time_t s;   
     time(&s);
 	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
-								"auth_jwt authn: start time - %s", ctime(&s));
+								"auth_jwt authn: start time - %s", ctime(&s));*/
 	rv = check_authn(r, sent_values[USER_INDEX], sent_values[PASSWORD_INDEX]);
 	//rv = check_authn(r, sent_values[USER_INDEX], sent_values[PASSWORD_INDEX],sent_values[CO_INDEX]);
-	//delay(60000);
-	sleep(30);
+	
+	//sleep(30);
 	if(rv == OK){
 		char* token;
 		//Added newly
@@ -1211,11 +1211,11 @@ ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
 	}
 	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
 								"auth_jwt authn: sent_values[CN_INDEX] - %s && getenv(USER_SPEC) - %s ", sent_values[CN_INDEX],getenv("USER_SPEC"));
-	time_t e;   // not a primitive datatype
+	/*time_t e;   // not a primitive datatype
     time(&e);
 	ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
 								"auth_jwt authn: end time - %s", ctime(&e));
-
+*/
 	return rv;
 }
 
@@ -1510,7 +1510,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		time_t e;   
 		time(&e);
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
-								"auth_jwt authn: start time - %s", ctime(&e));
+								"auth_jwt authn: end time - %s", ctime(&e));
 	}
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
 							"auth_jwt authn:  url :: %s", r->uri);
