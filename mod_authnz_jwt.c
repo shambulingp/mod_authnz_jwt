@@ -1493,14 +1493,14 @@ static int auth_jwt_authn_with_token(request_rec *r){
 
 	if (delivery_type == 0) {
 		return DECLINED;
-	}
+	}	
 
 	char *url_should_not_skip = "/redirect";
 	if(strstr(r->uri, url_should_not_skip) != NULL){
 		setenv("AUTHENTICATION_TOKEN", r->args, 1);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: AUTHENTICATION_TOKEN in /Redirect :: %s",getenv("AUTHENTICATION_TOKEN"));
-									
+	// Adding 30 sec delay								
 		time_t s;   
 		time(&s);
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
@@ -1511,6 +1511,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		time(&e);
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
 								"auth_jwt authn: end time - %s", ctime(&e));
+								
 	}
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
 							"auth_jwt authn:  url :: %s", r->uri);
@@ -1519,6 +1520,8 @@ static int auth_jwt_authn_with_token(request_rec *r){
 
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: AUTHENTICATION_TOKEN :: %s",getenv("AUTHENTICATION_TOKEN"));
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: HTTP_SESSION :: %s",getenv("HTTP_SESSION"));
 					
 									
 									
@@ -1597,7 +1600,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 									"auth_jwt authn: authorization_header in otherthan /Redirect :: %s",authorization_header);
 		}
 		
-		if(authorization_header) {
+		if(authorization_header) {			
 			if(strlen(authorization_header) > 7 && !strncmp(authorization_header, "Bearer ", 7)){
 				token_str = authorization_header+7;
 			} else {
