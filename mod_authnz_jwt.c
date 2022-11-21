@@ -1500,7 +1500,10 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		setenv("AUTHENTICATION_TOKEN", r->args, 1);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: AUTHENTICATION_TOKEN in /Redirect :: %s",getenv("AUTHENTICATION_TOKEN"));
-	// Adding 30 sec delay								
+		setenv("HTTP_SESSION", r->args, 1);
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: HTTP_SESSION in /Redirect  :: %s",getenv("HTTP_SESSION"));
+	/* Adding 30 sec delay								
 		time_t s;   
 		time(&s);
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
@@ -1511,7 +1514,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		time(&e);
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
 								"auth_jwt authn: end time - %s", ctime(&e));
-								
+		*/						
 	}
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
 							"auth_jwt authn:  url :: %s", r->uri);
