@@ -1502,6 +1502,10 @@ static int auth_jwt_authn_with_token(request_rec *r){
 
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
 						"auth_jwt authn: Reading SSL_SESSION_ID -%s",apr_table_get(r->subprocess_env, "SSL_SESSION_ID"));
+		
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: UNIQUE_ID in /Redirect :: %s",getenv("UNIQUE_ID"));
+						
 	// Adding 30 sec delay								
 		time_t s;   
 		time(&s);
@@ -1525,7 +1529,8 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: SSL_SESSION_ID :: %s",apr_table_get(r->subprocess_env, "SSL_SESSION_ID"));
 					
-									
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: UNIQUE_ID  :: %s",getenv("UNIQUE_ID"));								
 									
 	if(delivery_type & 2) {
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
