@@ -1456,7 +1456,6 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		return DECLINED;
 
 	}
-	
 
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55400)
 							"auth_jwt: checking authentication with token @@@ ...");
@@ -1500,10 +1499,10 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		setenv("AUTHENTICATION_TOKEN", r->args, 1);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: AUTHENTICATION_TOKEN in /Redirect :: %s",getenv("AUTHENTICATION_TOKEN"));
-		setenv("HTTP_SESSION", r->args, 1);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: HTTP_SESSION in /Redirect  :: %s",getenv("HTTP_SESSION"));
-	/* Adding 30 sec delay								
+
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
+						"auth_jwt authn: Reading SSL_SESSION_ID -%s",apr_table_get(r->subprocess_env, "SSL_SESSION_ID"));
+	// Adding 30 sec delay								
 		time_t s;   
 		time(&s);
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
@@ -1514,7 +1513,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		time(&e);
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
 								"auth_jwt authn: end time - %s", ctime(&e));
-		*/						
+								
 	}
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
 							"auth_jwt authn:  url :: %s", r->uri);
@@ -1524,7 +1523,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: AUTHENTICATION_TOKEN :: %s",getenv("AUTHENTICATION_TOKEN"));
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: HTTP_SESSION :: %s",getenv("HTTP_SESSION"));
+									"auth_jwt authn: SSL_SESSION_ID :: %s",apr_table_get(r->subprocess_env, "SSL_SESSION_ID"));
 					
 									
 									
