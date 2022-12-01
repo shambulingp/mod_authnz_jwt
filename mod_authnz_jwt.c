@@ -1527,10 +1527,16 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: AUTHENTICATION_TOKEN :: %s",getenv("AUTHENTICATION_TOKEN"));
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: SSL_SESSION_ID :: %s",apr_table_get(r->subprocess_env, "SSL_SESSION_ID"));
+									"auth_jwt authn: SSL_SESSION_ID thru sub process :: %s",apr_table_get(r->subprocess_env, "SSL_SESSION_ID"));
+									
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: SSL_SESSION_ID thru env :: %s",getenv("SSL_SESSION_ID"));
+
 					
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: UNIQUE_ID  :: %s",getenv("UNIQUE_ID"));								
+									"auth_jwt authn: UNIQUE_ID thru env  :: %s",getenv("UNIQUE_ID"));	
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: UNIQUE_ID thru header :: %s",(char*)apr_table_get( r->headers_in, "uniqueid"));									
 									
 	if(delivery_type & 2) {
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
