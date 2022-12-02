@@ -1536,7 +1536,16 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: UNIQUE_ID thru env  :: %s",getenv("UNIQUE_ID"));	
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: UNIQUE_ID thru header :: %s",(char*)apr_table_get( r->headers_in, "uniqueid"));									
+									"auth_jwt authn: UNIQUE_ID thru header :: %s",(char*)apr_table_get( r->headers_in, "uniqueid"));
+									
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: MYUNIQUEID thru r->headers_in :: %s",(char*)apr_table_get( r->headers_in, "MYUNIQUEID"));
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: HTTP_MYUNIQUEID thru r->headers_in :: %s",(char*)apr_table_get( r->headers_in, "HTTP_MYUNIQUEID"));
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: MYUNIQUEID thru r->headers_out :: %s",(char*)apr_table_get( r->headers_out, "MYUNIQUEID"));
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: HTTP_MYUNIQUEID thru r->headers_out :: %s",(char*)apr_table_get( r->headers_out, "HTTP_MYUNIQUEID"));									
 									
 	if(delivery_type & 2) {
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
