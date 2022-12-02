@@ -1545,7 +1545,20 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: MYUNIQUEID thru r->headers_out :: %s",(char*)apr_table_get( r->headers_out, "MYUNIQUEID"));
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: HTTP_MYUNIQUEID thru r->headers_out :: %s",(char*)apr_table_get( r->headers_out, "HTTP_MYUNIQUEID"));									
+									"auth_jwt authn: HTTP_MYUNIQUEID thru r->headers_out :: %s",(char*)apr_table_get( r->headers_out, "HTTP_MYUNIQUEID"));	
+//Logging all Requeut_rec details
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: Connection id :: %ld", r->connection->id);	
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: Connection Thread id and name :: %ld and %s", r->connection->current_thread->td,r->connection->current_thread->thread_name);
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: local_ip :: %s", r->connection->local_ip);		
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: main->user :: %s", r->main->user);	
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: path_info :: %s", r->path_info);
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: prev->user :: %s", r->prev->user);									
 									
 	if(delivery_type & 2) {
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
