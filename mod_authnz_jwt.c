@@ -1550,7 +1550,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: Connection id :: %ld", r->connection->id);	
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: Connection Thread id and name :: %ld and %s", r->connection->current_thread->td,r->connection->current_thread->thread_name);
+									"auth_jwt authn: Connection Thread  name ::  %s",r->connection->current_thread->thread_name);
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: local_ip :: %s", r->connection->local_ip);		
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
