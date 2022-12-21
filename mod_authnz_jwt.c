@@ -1498,19 +1498,14 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	if(strstr(r->uri, url_should_not_skip) != NULL){
 		setenv("AUTHENTICATION_TOKEN", r->args, 1);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: AUTHENTICATION_TOKEN in /Redirect :: %s",getenv("AUTHENTICATION_TOKEN"));
-
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
-						"auth_jwt authn: Reading SSL_SESSION_ID -%s",apr_table_get(r->subprocess_env, "SSL_SESSION_ID"));
-		
+									"auth_jwt authn: AUTHENTICATION_TOKEN thru env0 in /Redirect :: %s",getenv("AUTHENTICATION_TOKEN"));
+		setenv(r->useragent_ip, r->args, 1);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: UNIQUE_ID in /Redirect :: %s",getenv("UNIQUE_ID"));
-									
-		apr_table_set(r->subprocess_env, "AUTHENTICATION_TOKEN",r->args);
+									"auth_jwt authn: useragent_ip_0 :: %s", r->useragent_ip);
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: Token thru useragent_ip_0 :: %s", getenv(r->useragent_ip));
 
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
-						"auth_jwt authn: Reading AUTHENTICATION_TOKEN 0-%s",apr_table_get(r->subprocess_env, "AUTHENTICATION_TOKEN"));
-						
+					
 	// Adding 30 sec delay								
 		time_t s;   
 		time(&s);
@@ -1530,46 +1525,12 @@ static int auth_jwt_authn_with_token(request_rec *r){
 								"auth_jwt authn: Query_String :: %s",r->args);
 
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: AUTHENTICATION_TOKEN :: %s",getenv("AUTHENTICATION_TOKEN"));
+									"auth_jwt authn: AUTHENTICATION_TOKEN 1:: %s",getenv("AUTHENTICATION_TOKEN"));
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: SSL_SESSION_ID thru sub process :: %s",apr_table_get(r->subprocess_env, "SSL_SESSION_ID"));
-									
+									"auth_jwt authn: useragent_ip_1:: %s", r->useragent_ip);
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: SSL_SESSION_ID thru env :: %s",getenv("SSL_SESSION_ID"));
+									"auth_jwt authn: Token thru useragent_ip_1 :: %s", getenv(r->useragent_ip));
 
-					
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: UNIQUE_ID thru env  :: %s",getenv("UNIQUE_ID"));	
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: UNIQUE_ID thru header :: %s",(char*)apr_table_get( r->headers_in, "uniqueid"));
-									
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: MYUNIQUEID thru r->headers_in :: %s",(char*)apr_table_get( r->headers_in, "MYUNIQUEID"));
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: HTTP_MYUNIQUEID thru r->headers_in :: %s",(char*)apr_table_get( r->headers_in, "HTTP_MYUNIQUEID"));
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: MYUNIQUEID thru r->headers_out :: %s",(char*)apr_table_get( r->headers_out, "MYUNIQUEID"));
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: HTTP_MYUNIQUEID thru r->headers_out :: %s",(char*)apr_table_get( r->headers_out, "HTTP_MYUNIQUEID"));	
-//Logging all Requeut_rec details
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: Connection id :: %ld", r->connection->id);	
-	/*ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: Connection Thread id and name :: %ld and %s", r->connection->current_thread->td,r->connection->current_thread->thread_name);
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: main->user :: %s", r->main->user);	
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: prev->user :: %s", r->prev->user);	*/
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: local_ip :: %s", r->connection->local_ip);		
-
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: path_info :: %s", r->path_info);
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: useragent_ip :: %s", r->useragent_ip);
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
-						"auth_jwt authn: Reading AUTHENTICATION_TOKEN 1-%s",apr_table_get(r->subprocess_env, "AUTHENTICATION_TOKEN"));
-								
 									
 	if(delivery_type & 2) {
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
@@ -1641,9 +1602,13 @@ static int auth_jwt_authn_with_token(request_rec *r){
 									"auth_jwt authn: authorization_header in /Redirect :: %s",authorization_header);
 		}
 		else{
-			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
-						"auth_jwt authn: Reading AUTHENTICATION_TOKEN 2-%s",apr_table_get(r->subprocess_env, "AUTHENTICATION_TOKEN"));
-			authorization_header = replaceWord(getenv("AUTHENTICATION_TOKEN"), oldW,newW);
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: useragent_ip_2:: %s", r->useragent_ip);
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: Token thru useragent_ip_2 :: %s", getenv(r->useragent_ip));
+			//authorization_header = replaceWord(getenv("AUTHENTICATION_TOKEN"), oldW,newW);
+			authorization_header = replaceWord(getenv(r->useragent_ip), oldW,newW);
+			
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: authorization_header in otherthan /Redirect :: %s",authorization_header);
 		}
