@@ -1505,6 +1505,11 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: UNIQUE_ID in /Redirect :: %s",getenv("UNIQUE_ID"));
+									
+		apr_table_set(r->subprocess_env, "AUTHENTICATION_TOKEN",r->args);
+
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
+						"auth_jwt authn: Reading AUTHENTICATION_TOKEN 0-%s",apr_table_get(r->subprocess_env, "AUTHENTICATION_TOKEN"));
 						
 	// Adding 30 sec delay								
 		time_t s;   
@@ -1560,6 +1565,10 @@ static int auth_jwt_authn_with_token(request_rec *r){
 
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: path_info :: %s", r->path_info);
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: useragent_ip :: %s", r->useragent_ip);
+	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
+						"auth_jwt authn: Reading AUTHENTICATION_TOKEN 1-%s",apr_table_get(r->subprocess_env, "AUTHENTICATION_TOKEN"));
 								
 									
 	if(delivery_type & 2) {
@@ -1632,6 +1641,8 @@ static int auth_jwt_authn_with_token(request_rec *r){
 									"auth_jwt authn: authorization_header in /Redirect :: %s",authorization_header);
 		}
 		else{
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55405)
+						"auth_jwt authn: Reading AUTHENTICATION_TOKEN 2-%s",apr_table_get(r->subprocess_env, "AUTHENTICATION_TOKEN"));
 			authorization_header = replaceWord(getenv("AUTHENTICATION_TOKEN"), oldW,newW);
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: authorization_header in otherthan /Redirect :: %s",authorization_header);
