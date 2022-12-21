@@ -1498,26 +1498,13 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	if(strstr(r->uri, url_should_not_skip) != NULL){
 		setenv("AUTHENTICATION_TOKEN", r->args, 1);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: AUTHENTICATION_TOKEN thru env0 in /Redirect :: %s",getenv("AUTHENTICATION_TOKEN"));
+									"auth_jwt authn: Token thru AUTHENTICATION_TOKEN 0 in /Redirect :: %s",getenv("AUTHENTICATION_TOKEN"));
 		setenv(r->useragent_ip, r->args, 1);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: useragent_ip_0 :: %s", r->useragent_ip);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: Token thru useragent_ip_0 :: %s", getenv(r->useragent_ip));
-
 					
-	// Adding 30 sec delay								
-		time_t s;   
-		time(&s);
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
-								"auth_jwt authn: start time - %s", ctime(&s));
-
-		sleep(30);
-		time_t e;   
-		time(&e);
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55204)
-								"auth_jwt authn: end time - %s", ctime(&e));
-								
 	}
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55200)
 							"auth_jwt authn:  url :: %s", r->uri);
@@ -1525,7 +1512,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 								"auth_jwt authn: Query_String :: %s",r->args);
 
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: AUTHENTICATION_TOKEN 1:: %s",getenv("AUTHENTICATION_TOKEN"));
+									"auth_jwt authn: Token thru AUTHENTICATION_TOKEN 1:: %s",getenv("AUTHENTICATION_TOKEN"));
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: useragent_ip_1:: %s", r->useragent_ip);
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
@@ -1535,62 +1522,7 @@ static int auth_jwt_authn_with_token(request_rec *r){
 	if(delivery_type & 2) {
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 								"auth_jwt authn: reading Authorization header...");
-	/*	
-		//Reading Header info						
-	const apr_array_header_t    *fields;
-    int                         j;
-    apr_table_entry_t           *e = 0;
-   
-
-    fields = apr_table_elts(r->headers_in);
-    e = (apr_table_entry_t *) fields->elts;
-    for(j = 0; j < fields->nelts; j++) {
-        ap_rprintf(r, "<b>%s</b>: %s<br/>", e[j].key, e[j].val);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-								"apr_table_get Key & Values === <b>%s</b>: %s<br/>", e[j].key, e[j].val);
-    }*/
-		
-		//char* authorization_header = (char*)apr_table_get( r->headers_in, "Authorization");
 	
-		//Token value being passed from the config file
-	/*	int res;
-		apr_off_t len;
-		apr_size_t size;
-		char* buffer;
-		apr_array_header_t *pairs = NULL;
-		res = ap_parse_form_data(r, NULL, &pairs, -1, MAX_KEY_LEN);
-		if (res != OK) {
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(55202)
-							"auth_jwt authn: an error occured while parsing form data, aborting Authorization.");
-			return res;
-		}
-		char* field = (char *)get_config_value(r, dir_form_token);
-		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
-							"auth_jwt authn: reading field %s", field);
-
-		char* sent_value;
-		
-		int i;
-		while (pairs && !apr_is_empty_array(pairs)) {
-			ap_form_pair_t *pair = (ap_form_pair_t *) apr_array_pop(pairs);
-
-			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
-								"auth_jwt authn: entered while loop with field %s", field);
-			if (field && !strcmp(pair->name, field) && &sent_value) {
-				apr_brigade_length(pair->value, 1, &len);
-				size = (apr_size_t) len;
-				buffer = apr_palloc(r->pool, size + 1);
-				apr_brigade_flatten(pair->value, buffer, &size);
-				buffer[len] = 0;
-				sent_value = buffer;
-				ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55203)
-								"auth_jwt authn: exiting while loop with value %s", sent_value);
-			}
-			
-		}
-		
-		char* authorization_header = sent_value;
-*/	
 		// Reading Authorization header info through query param
 		char* authorization_header = NULL;
 		char *url_should_not_skip = "/redirect";
@@ -1600,12 +1532,13 @@ static int auth_jwt_authn_with_token(request_rec *r){
 			authorization_header = replaceWord(r->args, oldW,newW);
 			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: authorization_header in /Redirect :: %s",authorization_header);
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: useragent_ip_2 in /Redirect:: %s", r->useragent_ip);
 		}
 		else{
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: useragent_ip_2:: %s", r->useragent_ip);
-	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
-									"auth_jwt authn: Token thru useragent_ip_2 :: %s", getenv(r->useragent_ip));
+			ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: useragent_ip_2 in otherthan /Redirect:: %s", r->useragent_ip);
+
 			//authorization_header = replaceWord(getenv("AUTHENTICATION_TOKEN"), oldW,newW);
 			authorization_header = replaceWord(getenv(r->useragent_ip), oldW,newW);
 			
