@@ -1499,6 +1499,11 @@ static int auth_jwt_authn_with_token(request_rec *r){
 		setenv("AUTHENTICATION_TOKEN", r->args, 1);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: Token thru AUTHENTICATION_TOKEN 0 in /Redirect :: %s",getenv("AUTHENTICATION_TOKEN"));
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: Checking before setting useragent_ip_0 :: %s", getenv(r->useragent_ip));
+		unsetenv(r->useragent_ip);
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
+									"auth_jwt authn: Checking after deleting  useragent_ip_0 :: %s", getenv(r->useragent_ip));
 		setenv(r->useragent_ip, r->args, 1);
 		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(55402)
 									"auth_jwt authn: useragent_ip_0 :: %s", r->useragent_ip);
